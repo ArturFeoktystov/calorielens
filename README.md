@@ -12,7 +12,7 @@ Status: **step 1 of the MVP** — profile, daily targets, home screen, water.
 
 ## Install on iPhone
 
-1. Open the app's GitHub Pages address in **Safari**.
+1. Open <https://arturfeoktystov.github.io/calorielens/> in **Safari**.
 2. Tap **Share** → **Add to Home Screen** → **Add**.
 3. Open it from the home screen, fill in your profile, then tap **⚙︎** and paste your Anthropic
    key (`sk-ant-…`).

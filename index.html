@@ -112,10 +112,11 @@
   <dialog id="settings-dialog">
     <form id="settings-form" method="dialog">
       <h2>Settings</h2>
+      <button type="button" id="scan-keys" class="scan">📷 Scan key from laptop</button>
       <label>Anthropic API key
         <input name="anthropicKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…">
       </label>
-      <p class="muted small">Stored only on this phone. Used to recognize food photos.</p>
+      <p id="key-note" class="muted small">Stored only on this phone. Used to recognize food photos.</p>
       <label>Recognition model<select name="model" id="model-select"></select></label>
       <button type="button" id="edit-profile" class="secondary wide">Edit profile</button>
       <div class="dialog-actions">
@@ -125,6 +126,17 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js"></script>
+  <dialog id="scanner">
+    <h2>Scan key</h2>
+    <p class="muted small">On the laptop run VoiceToText's <code>tools\show_keys_qr.py</code>, then point the camera at the QR code.</p>
+    <video id="scanner-video" playsinline muted></video>
+    <p id="scanner-status" class="muted small"></p>
+    <div class="dialog-actions">
+      <button type="button" id="scanner-cancel" class="secondary">Cancel</button>
+    </div>
+  </dialog>
+
+  <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
+  <script type="module" src="app.js?v=2"></script>
 </body>
 </html>

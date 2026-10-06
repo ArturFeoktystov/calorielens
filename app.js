@@ -181,6 +181,7 @@ $("open-settings").addEventListener("click", () => {
   const s = settings();
   settingsForm.elements.anthropicKey.value = s.anthropicKey;
   settingsForm.elements.model.value = s.model;
+  $("key-note").textContent = "Stored only on this phone. Used to recognize food photos.";
   $("settings-dialog").showModal();
 });
 settingsForm.addEventListener("submit", () => {
@@ -190,6 +191,76 @@ settingsForm.addEventListener("submit", () => {
   });
 });
 $("settings-cancel").addEventListener("click", () => $("settings-dialog").close());
+
+// --- scan the key from the laptop's QR code (tools/show_keys_qr.py in the VoiceToText repo) -------
+// The QR holds "VTT-KEYS:" + JSON {groq, anthropic}; only the Anthropic key is used here.
+// It is decoded on the phone; nothing is sent anywhere.
+
+const QR_PREFIX = "VTT-KEYS:";
+const scanner = $("scanner");
+const scannerVideo = $("scanner-video");
+let scanStream = null;
+let scanFrame = null;
+
+function stopScanning() {
+  cancelAnimationFrame(scanFrame);
+  scanFrame = null;
+  scanStream?.getTracks().forEach((t) => t.stop());
+  scanStream = null;
+  if (scanner.open) scanner.close();
+}
+
+function applyScannedKey(text) {
+  let keys;
+  try {
+    keys = JSON.parse(text.slice(QR_PREFIX.length));
+  } catch {
+    return false;
+  }
+  if (!keys.anthropic?.startsWith("sk-ant-")) return false;
+  settingsForm.elements.anthropicKey.value = keys.anthropic;
+  save("settings", { ...settings(), anthropicKey: keys.anthropic });
+  return true;
+}
+
+$("scan-keys").addEventListener("click", async () => {
+  const status = $("scanner-status");
+  status.textContent = "Starting camera…";
+  scanner.showModal();
+  try {
+    const { default: jsQR } = await import("https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm");
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    scannerVideo.srcObject = scanStream;
+    await scannerVideo.play();
+    status.textContent = "Looking for the QR code…";
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const tick = () => {
+      if (!scanStream) return;
+      if (scannerVideo.readyState >= 2) {
+        canvas.width = scannerVideo.videoWidth;
+        canvas.height = scannerVideo.videoHeight;
+        ctx.drawImage(scannerVideo, 0, 0);
+        const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+        if (code?.data.startsWith(QR_PREFIX)) {
+          if (applyScannedKey(code.data)) {
+            stopScanning();
+            $("key-note").textContent = "Key added from the laptop and saved.";
+            navigator.vibrate?.(30);
+            return;
+          }
+          status.textContent = "That QR code doesn't contain an Anthropic key.";
+        }
+      }
+      scanFrame = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch {
+    status.textContent = "Camera not available. Allow camera access for this app in iPhone Settings.";
+  }
+});
+$("scanner-cancel").addEventListener("click", stopScanning);
+scanner.addEventListener("close", stopScanning);
 $("edit-profile").addEventListener("click", () => {
   $("settings-dialog").close();
   openProfile();

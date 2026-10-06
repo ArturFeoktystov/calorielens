@@ -220,6 +220,10 @@ textarea { resize: none; }
 .entry-head { display: flex; gap: 12px; align-items: center; }
 #entry-thumb { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #26262b; flex: none; }
 #entry-thumb[src=""], #entry-thumb:not([src]) { display: none; }
+.entry-photos { display: flex; gap: 8px; align-items: center; }
+.photo-list { display: flex; gap: 6px; flex: 1; min-width: 0; overflow-x: auto; }
+.photo-list img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; }
+.entry-photos button { flex: none; padding: 8px 12px; margin-left: auto; }
 .entry-total { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .status-line { font-size: 14px; color: var(--muted); }
 .status-line:empty { display: none; }

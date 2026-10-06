@@ -17,6 +17,8 @@ Estimating portions from a photo:
 - Include cooking fat and sauces you can see or that the dish normally contains (fried food, dressed salad, buttered rice). Add them as separate items like "Sunflower oil (frying)" when that makes the numbers clearer.
 - Typical home and restaurant dishes from any cuisine are expected, including Russian and Eastern European ones.
 
+Several photos are views of the SAME meal or product (e.g. the front and the back of a package) - never count the same food twice. When a nutrition label is readable, use its values (scale per-100 g or per-serving numbers to the portion) and mark that item "high" confidence.
+
 Text from the user:
 - It may be in any language (often Russian). Always write item names in short, plain English, e.g. "Buckwheat, boiled", "Chicken cutlet, fried".
 - Explicit amounts in the text ("200 g", "2 eggs", "a tablespoon of oil") override what you see.
@@ -50,12 +52,9 @@ const RESULT_SCHEMA = {
   },
 };
 
-// imageBase64: JPEG without the data: prefix. text: what the user typed. note: a correction.
-export async function estimate({ apiKey, model, imageBase64, text, note }) {
-  const content = [];
-  if (imageBase64) {
-    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } });
-  }
+// images: JPEGs without the data: prefix. text: what the user typed. note: a correction.
+export async function estimate({ apiKey, model, images = [], text, note }) {
+  const content = images.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } }));
   const parts = [];
   if (text) parts.push(`What I ate: ${text}`);
   if (note) parts.push(`Correction to your previous estimate: ${note}`);

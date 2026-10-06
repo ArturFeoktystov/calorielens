@@ -94,11 +94,15 @@
           <div id="entry-macros" class="muted small"></div>
         </div>
       </div>
+      <div id="entry-photos" class="entry-photos">
+        <div id="entry-photo-list" class="photo-list"></div>
+        <button type="button" id="entry-add-photo" class="secondary">＋ Add photo</button>
+      </div>
       <div id="entry-status" class="status-line"></div>
       <div id="entry-question" class="tip"></div>
       <ul id="entry-items" class="entry-items"></ul>
       <div id="entry-correct" class="correct">
-        <input id="entry-note" type="text" autocomplete="off" placeholder="Correct it: “fried in 1 tbsp oil”, “rice 200 g”…">
+        <input id="entry-note" type="text" autocomplete="off" enterkeyhint="send" placeholder="Correct it: “fried in 1 tbsp oil”, “rice 200 g”…">
         <button type="button" id="entry-reestimate" class="secondary">Re-estimate</button>
       </div>
       <div class="dialog-actions">
@@ -175,6 +179,6 @@
   </dialog>
 
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=3"></script>
+  <script type="module" src="app.js?v=4"></script>
 </body>
 </html>

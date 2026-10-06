@@ -2,11 +2,11 @@
 // Steps 1–2: profile, targets, home screen, water; photo/text -> Claude -> confirm -> diary.
 // The API key lives only in this browser's storage.
 
-import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js?v=3";
+import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js?v=4";
 import {
   load, save, entriesForDay, getEntry, putEntry, deleteEntry, waterForDay, setWater, requestPersistence,
-} from "./db.js?v=3";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=3";
+} from "./db.js?v=4";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=4";
 
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
@@ -122,16 +122,37 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) rend
 
 const PHOTO_MAX_SIDE = 1024;
 const THUMB_SIDE = 160;
+const MAX_PHOTOS = 4; // e.g. the dish, or the front and back of a package
 
-$("add-photo").addEventListener("click", () => $("photo-input").click());
+// Older entries kept a single `image`; newer ones keep `images`.
+const entryImages = (entry) => entry.images ?? (entry.image ? [entry.image] : []);
+
+let addingPhoto = false; // the next photo goes into the open entry instead of a new one
+
+$("add-photo").addEventListener("click", () => {
+  addingPhoto = false;
+  $("photo-input").click();
+});
+$("entry-add-photo").addEventListener("click", () => {
+  addingPhoto = true;
+  $("photo-input").click();
+});
 $("photo-input").addEventListener("change", async () => {
   const file = $("photo-input").files[0];
   $("photo-input").value = ""; // allow picking the same photo again
   if (!file) return;
   try {
     const img = await loadImage(file);
+    const image = toJpeg(img, PHOTO_MAX_SIDE, 0.82).split(",")[1];
+    if (addingPhoto && current && entryDialog.open) {
+      current.images = [...entryImages(current), image];
+      delete current.image;
+      await putEntry(current);
+      recognize($("entry-note").value.trim());
+      return;
+    }
     const entry = newEntry("photo");
-    entry.image = toJpeg(img, PHOTO_MAX_SIDE, 0.82).split(",")[1];
+    entry.images = [image];
     entry.thumb = toJpeg(img, THUMB_SIDE, 0.7, true);
     await putEntry(entry);
     render();
@@ -219,6 +240,10 @@ function renderEntry() {
     ? `Protein ${fmt(sum.protein)} g · Fat ${fmt(sum.fat)} g · Carbs ${fmt(sum.carbs)} g`
     : (current.text ?? "");
   $("entry-question").textContent = current.question || "";
+  // The question is answered in the correction field (or by editing grams).
+  $("entry-note").placeholder = current.question
+    ? "Answer here, e.g. “half the bag”, or just edit the grams"
+    : "Correct it: “fried in 1 tbsp oil”, “rice 200 g”…";
 
   $("entry-items").innerHTML = items.map((item, index) => `
     <li data-index="${index}">
@@ -231,8 +256,16 @@ function renderEntry() {
       <div class="item-facts">${itemFacts(item)}</div>
     </li>`).join("");
 
-  // Re-estimating needs the full photo (dropped after saving) or the text.
-  $("entry-correct").classList.toggle("hidden", !(current.image || current.text));
+  // Full photos are dropped after saving, so photos can only be added before that.
+  const images = entryImages(current);
+  $("entry-photos").classList.toggle("hidden", !images.length);
+  $("entry-photo-list").innerHTML = images.length > 1
+    ? images.map((data) => `<img src="data:image/jpeg;base64,${data}" alt="">`).join("")
+    : `<span class="muted small">Add the back of the pack for an exact label</span>`;
+  $("entry-add-photo").disabled = busy || images.length >= MAX_PHOTOS;
+
+  // Re-estimating needs the full photos or the text.
+  $("entry-correct").classList.toggle("hidden", !(images.length || current.text));
   $("entry-later").classList.toggle("hidden", current.status !== "pending");
   $("entry-save").disabled = busy || !items.length;
   $("entry-reestimate").disabled = busy;
@@ -285,8 +318,8 @@ async function recognize(note = "") {
   renderEntry();
   try {
     const result = await estimate({
-      apiKey: s.anthropicKey, model: s.model, imageBase64: entry.image, text: entry.text,
-      note: note ? `${note}\nPrevious estimate: ${JSON.stringify(entry.items.map(({ name, grams }) => ({ name, grams })))}` : "",
+      apiKey: s.anthropicKey, model: s.model, images: entryImages(entry), text: entry.text,
+      note: note ? `${entry.question ? `You asked: ${entry.question}\nAnswer: ` : ""}${note}\nPrevious estimate: ${JSON.stringify(entry.items.map(({ name, grams }) => ({ name, grams })))}` : "",
     });
     entry.items = result.items;
     entry.question = result.question;
@@ -308,13 +341,22 @@ async function recognize(note = "") {
   }
 }
 
-$("entry-reestimate").addEventListener("click", () => {
+function reestimate() {
+  if (busy) return;
   const note = $("entry-note").value.trim();
   if (!note && current.items.length) {
     $("entry-note").focus();
     return;
   }
+  $("entry-note").blur();
   recognize(note);
+}
+$("entry-reestimate").addEventListener("click", reestimate);
+// Return in the correction field re-estimates instead of submitting (= saving) the form.
+$("entry-note").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  reestimate();
 });
 
 $("entry-form").addEventListener("submit", async (event) => {
@@ -324,6 +366,7 @@ $("entry-form").addEventListener("submit", async (event) => {
   }
   current.status = "confirmed";
   delete current.image; // keep only the thumbnail
+  delete current.images;
   delete current.error;
   await putEntry(current);
   current = null;

@@ -2,11 +2,11 @@
 // Steps 1–2: profile, targets, home screen, water; photo/text -> Claude -> confirm -> diary.
 // The API key lives only in this browser's storage.
 
-import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js?v=4";
+import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js?v=5";
 import {
   load, save, entriesForDay, getEntry, putEntry, deleteEntry, waterForDay, setWater, requestPersistence,
-} from "./db.js?v=4";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=4";
+} from "./db.js?v=5";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=5";
 
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
@@ -240,10 +240,12 @@ function renderEntry() {
     ? `Protein ${fmt(sum.protein)} g · Fat ${fmt(sum.fat)} g · Carbs ${fmt(sum.carbs)} g`
     : (current.text ?? "");
   $("entry-question").textContent = current.question || "";
-  // The question is answered in the correction field (or by editing grams).
+  // The question is answered right under it, in the correction field (or by editing grams).
+  $("entry-ask").classList.toggle("has-question", Boolean(current.question));
   $("entry-note").placeholder = current.question
-    ? "Answer here, e.g. “half the bag”, or just edit the grams"
+    ? "Your answer, e.g. “180 g”, “no oil”"
     : "Correct it: “fried in 1 tbsp oil”, “rice 200 g”…";
+  $("entry-reestimate").textContent = current.question ? "Answer" : "Re-estimate";
 
   $("entry-items").innerHTML = items.map((item, index) => `
     <li data-index="${index}">

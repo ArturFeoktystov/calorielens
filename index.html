@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <header>
@@ -99,12 +99,15 @@
         <button type="button" id="entry-add-photo" class="secondary">＋ Add photo</button>
       </div>
       <div id="entry-status" class="status-line"></div>
-      <div id="entry-question" class="tip"></div>
-      <ul id="entry-items" class="entry-items"></ul>
-      <div id="entry-correct" class="correct">
-        <input id="entry-note" type="text" autocomplete="off" enterkeyhint="send" placeholder="Correct it: “fried in 1 tbsp oil”, “rice 200 g”…">
-        <button type="button" id="entry-reestimate" class="secondary">Re-estimate</button>
+      <!-- Claude's question and the field to answer it (or to correct the estimate) live together. -->
+      <div id="entry-ask" class="ask">
+        <div id="entry-question"></div>
+        <div id="entry-correct" class="correct">
+          <input id="entry-note" type="text" autocomplete="off" enterkeyhint="send" placeholder="Correct it: “fried in 1 tbsp oil”, “rice 200 g”…">
+          <button type="button" id="entry-reestimate" class="secondary">Re-estimate</button>
+        </div>
       </div>
+      <ul id="entry-items" class="entry-items"></ul>
       <div class="dialog-actions">
         <button type="button" id="entry-delete" class="secondary danger">Delete</button>
         <button type="button" id="entry-later" class="secondary">Later</button>
@@ -179,6 +182,6 @@
   </dialog>
 
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=4"></script>
+  <script type="module" src="app.js?v=5"></script>
 </body>
 </html>

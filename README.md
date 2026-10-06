@@ -93,3 +93,4 @@ node --test                # unit tests for the target math
 | `nutrition.js` | Target math and day boundaries (pure functions, tested) |
 | `db.js` | IndexedDB storage |
 | `manifest.webmanifest`, `icons/` | Home-screen name and icon |
+| `sw.js` | Service worker: fresh files on every launch, last copy for offline |

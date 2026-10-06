@@ -181,6 +181,8 @@
     </div>
   </dialog>
 
+  <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
+  <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
   <script type="module" src="app.js?v=5"></script>
 </body>

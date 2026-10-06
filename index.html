@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>CalorieLens</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CalorieLens">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon-192.png" alt="" class="logo">
+    <div class="title">
+      <h1>Today</h1>
+      <div id="date" class="muted small"></div>
+    </div>
+    <button id="open-settings" class="icon-button" aria-label="Settings">⚙︎</button>
+  </header>
+
+  <main>
+    <section class="card energy">
+      <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+        <circle id="ring-fill" class="ring-fill" cx="60" cy="60" r="52"></circle>
+      </svg>
+      <div class="energy-text">
+        <div id="kcal-left" class="big"></div>
+        <div id="kcal-left-label" class="muted"></div>
+        <div id="kcal-eaten" class="muted small"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="macros" class="macros"></div>
+      <div id="extras" class="muted small extras"></div>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <span>Water</span>
+        <span id="water-text" class="muted"></span>
+      </div>
+      <div class="bar"><div id="water-fill" class="bar-fill water"></div></div>
+      <div class="water-buttons">
+        <button class="pill" data-water="-250">−250</button>
+        <button class="pill" data-water="250">+250 ml</button>
+        <button class="pill" data-water="500">+500 ml</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row"><span>Meals</span></div>
+      <ol id="feed" class="feed"></ol>
+      <div id="feed-empty" class="muted small">No meals yet. Tap <b>Photo</b> to log your first one.</div>
+    </section>
+  </main>
+
+  <nav class="add-bar">
+    <button class="add primary" data-soon="2">📷<span>Photo</span></button>
+    <button class="add" data-soon="2">✎<span>Text</span></button>
+    <button class="add" data-soon="3">↻<span>Repeat</span></button>
+    <button class="add" data-soon="3">▥<span>Barcode</span></button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="profile-dialog">
+    <form id="profile-form" method="dialog">
+      <h2>Your profile</h2>
+      <p class="muted small">Used to calculate your daily targets. Stays on this phone.</p>
+
+      <div class="segmented" role="radiogroup" aria-label="Sex">
+        <label><input type="radio" name="sex" value="male"><span>Male</span></label>
+        <label><input type="radio" name="sex" value="female"><span>Female</span></label>
+      </div>
+
+      <div class="grid2">
+        <label>Birth year<input name="birthYear" type="number" inputmode="numeric" min="1930" max="2015" required></label>
+        <label>Height, cm<input name="heightCm" type="number" inputmode="decimal" min="120" max="230" step="0.5" required></label>
+        <label>Weight, kg<input name="weightKg" type="number" inputmode="decimal" min="35" max="250" step="0.1" required></label>
+        <label>Body fat, %<input name="bodyFatPct" type="number" inputmode="decimal" min="3" max="60" step="0.5" placeholder="optional"></label>
+      </div>
+
+      <label>Activity<select name="activity" id="activity-select"></select></label>
+      <label>Strength sessions per week<input name="strengthPerWeek" type="number" inputmode="numeric" min="0" max="14" required></label>
+      <label>Goal<select name="goal" id="goal-select"></select></label>
+      <label id="pace-field">Pace
+        <select name="pacePct">
+          <option value="0.5">Gentle — 0.5 % of body weight a week</option>
+          <option value="0.7">Standard — 0.7 % a week</option>
+          <option value="1">Fast — 1 % a week (harder to keep muscle)</option>
+        </select>
+      </label>
+
+      <div id="profile-preview" class="preview"></div>
+      <div id="strength-tip" class="tip"></div>
+
+      <div class="dialog-actions">
+        <button type="button" id="profile-cancel" class="secondary">Cancel</button>
+        <button type="submit" class="primary-button">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog">
+    <form id="settings-form" method="dialog">
+      <h2>Settings</h2>
+      <label>Anthropic API key
+        <input name="anthropicKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…">
+      </label>
+      <p class="muted small">Stored only on this phone. Used to recognize food photos.</p>
+      <label>Recognition model<select name="model" id="model-select"></select></label>
+      <button type="button" id="edit-profile" class="secondary wide">Edit profile</button>
+      <div class="dialog-actions">
+        <button type="button" id="settings-cancel" class="secondary">Cancel</button>
+        <button type="submit" class="primary-button">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

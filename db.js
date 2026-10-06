@@ -53,7 +53,8 @@ async function run(storeName, mode, action) {
 export const entriesForDay = (day) =>
   run("entries", "readonly", (store) => store.index("day").getAll(day))
     .then((list) => list.sort((a, b) => a.time - b.time));
-export const putEntry = (entry) => run("entries", "readwrite", (store) => store.put(entry));
+export const getEntry = (id) => run("entries", "readonly", (store) => store.get(id));
+export const putEntry =(entry) => run("entries", "readwrite", (store) => store.put(entry));
 export const deleteEntry = (id) => run("entries", "readwrite", (store) => store.delete(id));
 
 export const waterForDay = (day) =>

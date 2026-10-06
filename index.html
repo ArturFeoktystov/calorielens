@@ -63,13 +63,51 @@
   </main>
 
   <nav class="add-bar">
-    <button class="add primary" data-soon="2">📷<span>Photo</span></button>
-    <button class="add" data-soon="2">✎<span>Text</span></button>
+    <button id="add-photo" class="add primary">📷<span>Photo</span></button>
+    <button id="add-text" class="add">✎<span>Text</span></button>
     <button class="add" data-soon="3">↻<span>Repeat</span></button>
     <button class="add" data-soon="3">▥<span>Barcode</span></button>
   </nav>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+
+  <dialog id="text-dialog">
+    <form id="text-form" method="dialog">
+      <h2>What did you eat?</h2>
+      <textarea name="text" rows="4" required placeholder="e.g. 2 eggs, toast with butter, coffee with milk"></textarea>
+      <p class="muted small">Any language. Tap 🎤 on the keyboard to dictate.</p>
+      <div class="dialog-actions">
+        <button type="button" id="text-cancel" class="secondary">Cancel</button>
+        <button type="submit" class="primary-button">Estimate</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="entry-dialog">
+    <form id="entry-form" method="dialog">
+      <div class="entry-head">
+        <img id="entry-thumb" alt="">
+        <div>
+          <div id="entry-total" class="entry-total"></div>
+          <div id="entry-macros" class="muted small"></div>
+        </div>
+      </div>
+      <div id="entry-status" class="status-line"></div>
+      <div id="entry-question" class="tip"></div>
+      <ul id="entry-items" class="entry-items"></ul>
+      <div id="entry-correct" class="correct">
+        <input id="entry-note" type="text" autocomplete="off" placeholder="Correct it: “fried in 1 tbsp oil”, “rice 200 g”…">
+        <button type="button" id="entry-reestimate" class="secondary">Re-estimate</button>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="entry-delete" class="secondary danger">Delete</button>
+        <button type="button" id="entry-later" class="secondary">Later</button>
+        <button type="submit" id="entry-save" class="primary-button">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="profile-dialog">
     <form id="profile-form" method="dialog">
@@ -137,6 +175,6 @@
   </dialog>
 
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=2"></script>
+  <script type="module" src="app.js?v=3"></script>
 </body>
 </html>

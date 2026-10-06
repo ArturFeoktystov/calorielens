@@ -8,7 +8,7 @@ It is a web app you add to the home screen. No App Store, no server, no sign-up.
 contains **no API keys**: each user types their own Anthropic key in Settings, and it is stored only
 in that phone's browser storage. All diary data stays on the phone.
 
-Status: **step 1 of the MVP** — profile, daily targets, home screen, water.
+Status: **steps 1–2 of the MVP** — profile, targets, home screen, water; photo or text → Claude → confirm → diary.
 
 ## Install on iPhone
 
@@ -70,7 +70,7 @@ below BMR.
 ## MVP plan
 
 1. ✅ Profile, daily targets, home screen, water.
-2. Photo → recognition → confirmation → diary; text input; pending queue.
+2. ✅ Photo → recognition → confirmation → diary; text input; pending queue.
 3. Repeat, My foods, USDA table, barcode and label.
 4. Weight log, weekly report, target adjustment, badge.
 5. Hints, Finish day, export/import, Shortcuts instructions.
@@ -88,7 +88,8 @@ node --test                # unit tests for the target math
 | File | What it is |
 |---|---|
 | `index.html`, `style.css` | The screens |
-| `app.js` | UI: home screen, profile, settings |
+| `app.js` | UI: home screen, adding food, confirmation, profile, settings |
+| `recognize.js` | Claude prompt, JSON schema and API call for food recognition |
 | `nutrition.js` | Target math and day boundaries (pure functions, tested) |
 | `db.js` | IndexedDB storage |
 | `manifest.webmanifest`, `icons/` | Home-screen name and icon |

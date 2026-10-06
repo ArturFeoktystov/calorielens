@@ -1,8 +1,12 @@
 // CalorieLens for iPhone: photo of a meal -> calories and macros -> what is left for today.
-// Step 1: profile, daily targets, home screen, water. The API key lives only in this browser's storage.
+// Steps 1–2: profile, targets, home screen, water; photo/text -> Claude -> confirm -> diary.
+// The API key lives only in this browser's storage.
 
-import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js";
-import { load, save, entriesForDay, waterForDay, setWater, requestPersistence } from "./db.js";
+import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js?v=3";
+import {
+  load, save, entriesForDay, getEntry, putEntry, deleteEntry, waterForDay, setWater, requestPersistence,
+} from "./db.js?v=3";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=3";
 
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
@@ -58,11 +62,31 @@ async function render() {
 
   $("feed").innerHTML = entries.map((entry) => {
     const time = new Date(entry.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    const names = entry.status === "pending" ? "Waiting for recognition…" : entry.items.map((i) => i.name).join(", ");
-    const kcal = entry.items.reduce((sum, i) => sum + (i.kcal ?? 0), 0);
-    return `<li><span class="muted">${time}</span> ${escapeHtml(names)} <span class="muted">${fmt(kcal)} kcal</span></li>`;
+    const items = entry.items ?? [];
+    const pending = entry.status === "pending";
+    const names = pending
+      ? (items.length ? "Ready to confirm — tap" : "Waiting — tap to recognize")
+      : items.map((i) => i.name).join(", ");
+    const kcal = pending ? "" : `${fmt(entryKcal(entry))} kcal`;
+    const thumb = entry.thumb
+      ? `<img src="${entry.thumb}" alt="">`
+      : `<span class="no-thumb">${entry.source === "text" ? "✎" : "📷"}</span>`;
+    return `<li data-id="${entry.id}" class="${pending ? "pending" : ""}">${thumb}
+      <div class="what"><div class="names">${escapeHtml(names)}</div><div class="muted small">${time}</div></div>
+      <span class="kcal">${kcal}</span></li>`;
   }).join("");
 }
+
+const entryKcal = (entry) => (entry.items ?? []).reduce((sum, i) => sum + (i.kcal ?? 0), 0);
+
+$("feed").addEventListener("click", async (event) => {
+  const li = event.target.closest("li[data-id]");
+  if (!li) return;
+  const entry = await getEntry(li.dataset.id);
+  if (!entry) return;
+  openEntry(entry);
+  if (entry.status === "pending" && !entry.items?.length) recognize();
+});
 
 function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -91,6 +115,235 @@ function toast(text) {
 
 // The day rolls over at 04:00 - refresh whenever the app comes back to the foreground.
 document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+
+// --- adding food: photo and text -----------------------------------------------------------------
+// Every new entry is saved right away as "pending", so nothing is lost offline or on an API error.
+// It becomes "confirmed" (and counts toward today) only when the user taps Save.
+
+const PHOTO_MAX_SIDE = 1024;
+const THUMB_SIDE = 160;
+
+$("add-photo").addEventListener("click", () => $("photo-input").click());
+$("photo-input").addEventListener("change", async () => {
+  const file = $("photo-input").files[0];
+  $("photo-input").value = ""; // allow picking the same photo again
+  if (!file) return;
+  try {
+    const img = await loadImage(file);
+    const entry = newEntry("photo");
+    entry.image = toJpeg(img, PHOTO_MAX_SIDE, 0.82).split(",")[1];
+    entry.thumb = toJpeg(img, THUMB_SIDE, 0.7, true);
+    await putEntry(entry);
+    render();
+    openEntry(entry);
+    recognize();
+  } catch {
+    toast("Couldn't read that photo. Try again.");
+  }
+});
+
+$("add-text").addEventListener("click", () => {
+  $("text-form").reset();
+  $("text-dialog").showModal();
+});
+$("text-cancel").addEventListener("click", () => $("text-dialog").close());
+$("text-form").addEventListener("submit", async () => {
+  const entry = newEntry("text");
+  entry.text = $("text-form").elements.text.value.trim();
+  await putEntry(entry);
+  render();
+  openEntry(entry);
+  recognize();
+});
+
+function newEntry(source) {
+  const now = new Date();
+  return { id: crypto.randomUUID(), day: dayKey(now), time: now.getTime(), source, status: "pending", items: [], question: "" };
+}
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+    img.src = url; // Safari applies the photo's EXIF rotation when decoding an <img>
+  });
+}
+
+// Scales so the longer side is at most maxSide (or crops to a square thumbnail), returns a data: URL.
+function toJpeg(img, maxSide, quality, square = false) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (square) {
+    const side = Math.min(w, h);
+    canvas.width = canvas.height = maxSide;
+    ctx.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, maxSide, maxSide);
+  } else {
+    const scale = Math.min(1, maxSide / Math.max(w, h));
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// --- entry dialog: recognize, review, correct, save ----------------------------------------------
+
+const entryDialog = $("entry-dialog");
+let current = null; // the entry shown in the dialog
+let busy = false;
+
+function openEntry(entry) {
+  current = structuredClone(entry);
+  $("entry-note").value = "";
+  setEntryStatus(entry.error || "", entry.error ? "error" : "");
+  renderEntry();
+  if (!entryDialog.open) entryDialog.showModal();
+}
+
+function setEntryStatus(text, kind = "") {
+  $("entry-status").textContent = text;
+  $("entry-status").className = `status-line ${kind}`;
+}
+
+function renderEntry() {
+  const items = current.items;
+  const sum = Object.fromEntries(NUTRIENT_FIELDS.map((n) => [n, items.reduce((s, i) => s + i[n], 0)]));
+  $("entry-thumb").src = current.thumb || "";
+  $("entry-thumb").classList.toggle("hidden", !current.thumb);
+  $("entry-total").textContent = items.length ? `${fmt(sum.kcal)} kcal` : (current.text ? "Text entry" : "Photo");
+  $("entry-macros").textContent = items.length
+    ? `Protein ${fmt(sum.protein)} g · Fat ${fmt(sum.fat)} g · Carbs ${fmt(sum.carbs)} g`
+    : (current.text ?? "");
+  $("entry-question").textContent = current.question || "";
+
+  $("entry-items").innerHTML = items.map((item, index) => `
+    <li data-index="${index}">
+      <div class="item-top">
+        <input class="item-name" value="${escapeHtml(item.name)}" aria-label="Food name">
+        <input class="item-grams" type="number" inputmode="decimal" min="0" step="1" value="${Math.round(item.grams)}" aria-label="Grams">
+        <span class="unit">g</span>
+        <button type="button" class="item-remove" aria-label="Remove">✕</button>
+      </div>
+      <div class="item-facts">${itemFacts(item)}</div>
+    </li>`).join("");
+
+  // Re-estimating needs the full photo (dropped after saving) or the text.
+  $("entry-correct").classList.toggle("hidden", !(current.image || current.text));
+  $("entry-later").classList.toggle("hidden", current.status !== "pending");
+  $("entry-save").disabled = busy || !items.length;
+  $("entry-reestimate").disabled = busy;
+}
+
+function itemFacts(item) {
+  const guess = item.confidence === "low" ? ` · <span class="guess">≈ rough guess</span>` : "";
+  const alcohol = item.alcohol > 0 ? ` · alcohol ${fmt(item.alcohol)} g` : "";
+  return `${fmt(item.kcal)} kcal · P ${fmt(item.protein)} · F ${fmt(item.fat)} · C ${fmt(item.carbs)}${alcohol}${guess}`;
+}
+
+// Editing grams scales every nutrient of that item proportionally.
+$("entry-items").addEventListener("input", (event) => {
+  const li = event.target.closest("li[data-index]");
+  const item = current.items[li.dataset.index];
+  if (event.target.classList.contains("item-name")) {
+    item.name = event.target.value;
+    return;
+  }
+  const grams = Number(event.target.value);
+  if (!(grams >= 0) || !item.grams) return;
+  const factor = grams / item.grams;
+  for (const n of NUTRIENT_FIELDS) item[n] *= factor;
+  item.grams = grams;
+  li.querySelector(".item-facts").innerHTML = itemFacts(item);
+  const items = current.items;
+  $("entry-total").textContent = `${fmt(items.reduce((s, i) => s + i.kcal, 0))} kcal`;
+  $("entry-macros").textContent = ["protein", "fat", "carbs"]
+    .map((n) => `${n[0].toUpperCase() + n.slice(1)} ${fmt(items.reduce((s, i) => s + i[n], 0))} g`).join(" · ");
+});
+$("entry-items").addEventListener("click", (event) => {
+  if (!event.target.classList.contains("item-remove")) return;
+  current.items.splice(event.target.closest("li").dataset.index, 1);
+  renderEntry();
+});
+
+async function recognize(note = "") {
+  const s = settings();
+  if (!s.anthropicKey) {
+    setEntryStatus("Add your Anthropic key in ⚙︎ Settings, then tap this entry again.", "error");
+    return;
+  }
+  if (!navigator.onLine) {
+    setEntryStatus("You're offline. The entry is saved — tap it in Meals when you're back online.", "error");
+    return;
+  }
+  const entry = current;
+  busy = true;
+  setEntryStatus(note ? "Re-estimating…" : "Recognizing…", "busy");
+  renderEntry();
+  try {
+    const result = await estimate({
+      apiKey: s.anthropicKey, model: s.model, imageBase64: entry.image, text: entry.text,
+      note: note ? `${note}\nPrevious estimate: ${JSON.stringify(entry.items.map(({ name, grams }) => ({ name, grams })))}` : "",
+    });
+    entry.items = result.items;
+    entry.question = result.question;
+    delete entry.error;
+    await putEntry(entry);
+    if (current === entry) {
+      setEntryStatus(result.items.length ? "Check the grams, then tap Save." : "", "");
+      $("entry-note").value = "";
+    }
+  } catch (error) {
+    const { message } = describeError(error);
+    entry.error = message;
+    await putEntry(entry);
+    if (current === entry) setEntryStatus(message, "error");
+  } finally {
+    busy = false;
+    if (current === entry) renderEntry();
+    render();
+  }
+}
+
+$("entry-reestimate").addEventListener("click", () => {
+  const note = $("entry-note").value.trim();
+  if (!note && current.items.length) {
+    $("entry-note").focus();
+    return;
+  }
+  recognize(note);
+});
+
+$("entry-form").addEventListener("submit", async (event) => {
+  if (busy || !current.items.length) {
+    event.preventDefault();
+    return;
+  }
+  current.status = "confirmed";
+  delete current.image; // keep only the thumbnail
+  delete current.error;
+  await putEntry(current);
+  current = null;
+  render();
+  toast("Saved.");
+});
+
+$("entry-later").addEventListener("click", () => entryDialog.close());
+$("entry-delete").addEventListener("click", async () => {
+  if (!confirm("Delete this entry?")) return;
+  await deleteEntry(current.id);
+  entryDialog.close();
+  render();
+});
+entryDialog.addEventListener("close", () => { if (!busy) current = null; });
+
+window.addEventListener("online", async () => {
+  const waiting = (await entriesForDay(dayKey())).filter((e) => e.status === "pending" && !e.items.length);
+  if (waiting.length) toast(`Back online — tap ${waiting.length === 1 ? "the waiting entry" : "the waiting entries"} in Meals.`);
+});
 
 // --- profile -------------------------------------------------------------------------------------
 

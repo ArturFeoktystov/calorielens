@@ -95,7 +95,53 @@ export function dayKey(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
-export const NUTRIENTS = ["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol"];
+// Moves a "YYYY-MM-DD" key by whole days (noon avoids daylight-saving edge cases).
+export function shiftDay(day, delta) {
+  const [y, m, d] = day.split("-").map(Number);
+  const date = new Date(y, m - 1, d + delta, 12);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// A moment inside a diary day: today's clock time on that day, so new entries sort naturally.
+// Clock times before 04:00 belong to the next calendar date of that diary day.
+export function timeOnDay(day, now = new Date()) {
+  const [y, m, d] = day.split("-").map(Number);
+  const extra = now.getHours() < DAY_START_HOUR ? 1 : 0;
+  return new Date(y, m - 1, d + extra, now.getHours(), now.getMinutes(), now.getSeconds()).getTime();
+}
+
+// Per-day totals for the `count` days ending with `lastDay`, oldest first.
+// Days with no confirmed entries have logged: false, so averages skip them.
+export function dailyStats(entries, lastDay, count) {
+  const byDay = new Map();
+  for (const entry of entries) {
+    if (entry.status === "pending") continue;
+    byDay.set(entry.day, [...(byDay.get(entry.day) ?? []), entry]);
+  }
+  return Array.from({ length: count }, (_, i) => {
+    const day = shiftDay(lastDay, i - count + 1);
+    const list = byDay.get(day) ?? [];
+    return { day, logged: list.length > 0, ...totals(list) };
+  });
+}
+
+// Averages over logged days, how many stayed within the calorie target, and the energy balance
+// against maintenance (negative = deficit). Fat estimate uses the same 7700 kcal/kg as the targets.
+export function summarize(days, goal) {
+  const logged = days.filter((d) => d.logged);
+  const avg = (key) => (logged.length ? logged.reduce((s, d) => s + d[key], 0) / logged.length : 0);
+  const balance = logged.reduce((s, d) => s + d.kcal - goal.tdee, 0);
+  return {
+    loggedDays: logged.length,
+    avgKcal: Math.round(avg("kcal")),
+    avgProtein: Math.round(avg("protein")),
+    daysOnTarget: logged.filter((d) => d.kcal <= goal.kcal).length,
+    balanceKcal: Math.round(balance),
+    fatKg: Math.round((balance / KCAL_PER_KG_FAT) * 100) / 100,
+  };
+}
+
+export const NUTRIENTS =["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol"];
 
 // Sums confirmed entries; pending entries (not yet recognized) are not counted.
 export function totals(entries) {

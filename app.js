@@ -1,12 +1,15 @@
 // CalorieLens for iPhone: photo of a meal -> calories and macros -> what is left for today.
-// Steps 1–2: profile, targets, home screen, water; photo/text -> Claude -> confirm -> diary.
+// Steps 1–2: profile, targets, home screen, water; photo/text -> Claude -> confirm -> diary; history.
 // The API key lives only in this browser's storage.
 
-import { ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals } from "./nutrition.js?v=5";
 import {
-  load, save, entriesForDay, getEntry, putEntry, deleteEntry, waterForDay, setWater, requestPersistence,
-} from "./db.js?v=5";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=5";
+  ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
+} from "./nutrition.js?v=6";
+import {
+  load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
+  requestPersistence,
+} from "./db.js?v=6";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=6";
 
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
@@ -23,18 +26,47 @@ const profile = () => load("profile", null);
 const settings = () => ({ ...DEFAULT_SETTINGS, ...load("settings", {}) });
 
 // --- home screen ---------------------------------------------------------------------------------
+// Shows today by default; ‹ › and History open past days, which can be edited and added to.
+
+let viewDay = null; // null = today
+const shownDay = () => viewDay ?? dayKey();
+
+const dateOf = (day) => {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const shortDate = (day) => dateOf(day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
+function dayTitle(day) {
+  const today = dayKey();
+  if (day === today) return "Today";
+  if (day === shiftDay(today, -1)) return "Yesterday";
+  if (day >= shiftDay(today, -6)) return dateOf(day).toLocaleDateString("en-US", { weekday: "long" });
+  return dateOf(day).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+}
+
+function showDay(day) {
+  viewDay = day >= dayKey() ? null : day;
+  render();
+  window.scrollTo({ top: 0 });
+}
+$("day-prev").addEventListener("click", () => showDay(shiftDay(shownDay(), -1)));
+$("day-next").addEventListener("click", () => showDay(shiftDay(shownDay(), 1)));
+$("day-today").addEventListener("click", () => showDay(dayKey()));
 
 async function render() {
   const p = profile();
   if (!p) return;
-  const day = dayKey();
+  const day = shownDay();
   const goal = targets(p);
   const [entries, waterMl] = await Promise.all([entriesForDay(day), waterForDay(day)]);
   const eaten = totals(entries);
 
-  const [y, m, d] = day.split("-").map(Number);
-  $("date").textContent = new Date(y, m - 1, d)
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const isToday = day === dayKey();
+  $("day-title").textContent = dayTitle(day);
+  $("date").textContent = shortDate(day);
+  $("day-today").hidden = isToday;
+  $("day-next").disabled = isToday;
 
   const left = goal.kcal - eaten.kcal;
   document.querySelector(".energy").classList.toggle("over", left < 0);
@@ -94,7 +126,7 @@ function escapeHtml(text) {
 
 for (const button of document.querySelectorAll("[data-water]")) {
   button.addEventListener("click", async () => {
-    const day = dayKey();
+    const day = shownDay();
     const ml = Math.max((await waterForDay(day)) + Number(button.dataset.water), 0);
     await setWater(day, ml);
     render();
@@ -177,9 +209,11 @@ $("text-form").addEventListener("submit", async () => {
   recognize();
 });
 
+// Goes into the day on screen: logging a past day afterwards puts it at today's clock time on that day.
 function newEntry(source) {
-  const now = new Date();
-  return { id: crypto.randomUUID(), day: dayKey(now), time: now.getTime(), source, status: "pending", items: [], question: "" };
+  const day = shownDay();
+  const time = day === dayKey() ? Date.now() : timeOnDay(day);
+  return { id: crypto.randomUUID(), day, time, source, status: "pending", items: [], question: "" };
 }
 
 function loadImage(file) {
@@ -388,6 +422,111 @@ entryDialog.addEventListener("close", () => { if (!busy) current = null; });
 window.addEventListener("online", async () => {
   const waiting = (await entriesForDay(dayKey())).filter((e) => e.status === "pending" && !e.items.length);
   if (waiting.length) toast(`Back online — tap ${waiting.length === 1 ? "the waiting entry" : "the waiting entries"} in Meals.`);
+});
+
+// --- history: calories per day, averages, tap a day to open it -----------------------------------
+
+const statsDialog = $("stats-dialog");
+const CHART = { width: 340, height: 150, top: 14, bottom: 18 };
+let statsDays = [];
+let statsGoal = null;
+
+$("open-stats").addEventListener("click", () => {
+  renderStats();
+  statsDialog.showModal();
+});
+$("stats-close").addEventListener("click", () => statsDialog.close());
+statsDialog.addEventListener("change", renderStats);
+
+async function renderStats() {
+  const count = Number(statsDialog.querySelector("input[name=stats-range]:checked").value);
+  const last = dayKey();
+  statsGoal = targets(profile());
+  statsDays = dailyStats(await entriesBetween(shiftDay(last, 1 - count), last), last, count);
+  // Today is still going, so the averages use completed days only.
+  const s = summarize(statsDays.slice(0, -1), statsGoal);
+
+  const tile = (label, value, sub) =>
+    `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
+  $("stats-summary").innerHTML = s.loggedDays
+    ? tile("Average per day", `${fmt(s.avgKcal)} kcal`, `target ${fmt(statsGoal.kcal)}`)
+      + tile("Protein per day", `${fmt(s.avgProtein)} g`, `target ${fmt(statsGoal.protein)} g`)
+      + tile("Within target", `${s.daysOnTarget} of ${s.loggedDays}`, "logged days")
+      + tile("vs maintenance", `${signed(s.balanceKcal)} kcal`, `≈ ${Math.abs(s.fatKg) >= 1
+        ? `${s.fatKg < 0 ? "−" : "+"}${Math.abs(s.fatKg).toFixed(1)} kg`
+        : `${signed(s.fatKg * 1000)} g`} of fat`)
+      + `<div class="note">Completed days with meals logged; today is not counted yet.</div>`
+    : `<div class="note">Averages appear after the first completed day with meals logged.</div>`;
+
+  drawChart();
+  $("stats-days").innerHTML = statsDays.slice().reverse().map((d) => `
+    <li data-day="${d.day}" class="${d.logged ? "" : "empty"}">
+      <span class="when">${d.day === last ? "Today" : shortDate(d.day)}</span>
+      <span class="p">${d.logged ? `P ${fmt(d.protein)}` : ""}</span>
+      <span class="k">${d.logged ? `${fmt(d.kcal)} kcal` : "—"}</span>
+      <span class="flag">${d.logged && d.kcal > statsGoal.kcal ? "▲ over" : ""}</span>
+    </li>`).join("");
+}
+
+// One bar per day against the dashed target line; tapping a bar shows its numbers above the chart.
+function drawChart(selected = statsDays.length - 1) {
+  const { width, height, top, bottom } = CHART;
+  const n = statsDays.length;
+  const max = Math.max(statsGoal.kcal * 1.25, ...statsDays.map((d) => d.kcal));
+  const y = (kcal) => top + (height - top - bottom) * (1 - kcal / max);
+  const base = height - bottom;
+  const slot = width / n;
+  const barW = Math.max(slot - 2, 2); // 2px gap between bars
+  const r = Math.min(4, barW / 2);
+  const parts = [];
+
+  statsDays.forEach((d, i) => {
+    const x = i * slot + (slot - barW) / 2;
+    const cls = `${!d.logged ? "empty" : d.kcal > statsGoal.kcal ? "over" : "under"}${i === selected ? " selected" : ""}`;
+    if (d.logged && d.kcal > 0) {
+      const yTop = Math.min(y(d.kcal), base - r);
+      // Rounded top, square bottom on the baseline.
+      parts.push(`<path class="${cls}" d="M${x},${base} V${yTop + r} Q${x},${yTop} ${x + r},${yTop} H${x + barW - r} Q${x + barW},${yTop} ${x + barW},${yTop + r} V${base} Z"/>`);
+    } else {
+      parts.push(`<rect class="${cls}" x="${x}" y="${base - 2}" width="${barW}" height="2"/>`);
+    }
+    const every = n <= 7 ? 1 : 7;
+    if ((n - 1 - i) % every === 0) {
+      const label = n <= 7
+        ? dateOf(d.day).toLocaleDateString("en-US", { weekday: "short" })
+        : dateOf(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      // The last 30-day label hugs the right edge instead of being cut off.
+      const [lx, anchor] = n > 7 && i === n - 1 ? [x + barW, "end"] : [x + barW / 2, "middle"];
+      parts.push(`<text x="${lx}" y="${height - 4}" text-anchor="${anchor}">${label}</text>`);
+    }
+    // A full-height hit area, wider than thin 30-day bars.
+    parts.push(`<rect class="hit" data-i="${i}" x="${i * slot}" y="0" width="${slot}" height="${base}"/>`);
+  });
+
+  const ty = y(statsGoal.kcal);
+  parts.push(`<line class="target" x1="0" x2="${width}" y1="${ty}" y2="${ty}"/>`);
+  parts.push(`<text class="halo" x="2" y="${ty - 4}">target ${fmt(statsGoal.kcal)}</text>`);
+
+  const chart = $("stats-chart");
+  chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  chart.innerHTML = parts.join("");
+
+  const d = statsDays[selected];
+  $("stats-readout").textContent = d.logged
+    ? `${shortDate(d.day)} · ${fmt(d.kcal)} kcal · P ${fmt(d.protein)} · F ${fmt(d.fat)} · C ${fmt(d.carbs)}`
+    : `${shortDate(d.day)} · nothing logged`;
+}
+
+$("stats-chart").addEventListener("click", (event) => {
+  const i = event.target.dataset?.i;
+  if (i !== undefined) drawChart(Number(i));
+});
+$("stats-days").addEventListener("click", (event) => {
+  const li = event.target.closest("li[data-day]");
+  if (!li) return;
+  statsDialog.close();
+  showDay(li.dataset.day);
 });
 
 // --- profile -------------------------------------------------------------------------------------

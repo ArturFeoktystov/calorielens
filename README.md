@@ -8,7 +8,7 @@ It is a web app you add to the home screen. No App Store, no server, no sign-up.
 contains **no API keys**: each user types their own Anthropic key in Settings, and it is stored only
 in that phone's browser storage. All diary data stays on the phone.
 
-Status: **steps 1–2 of the MVP** — profile, targets, home screen, water; photo or text → Claude → confirm → diary.
+Status: **steps 1–2 of the MVP** — profile, targets, home screen, water; photo or text → Claude → confirm → diary; past days and a 7/30-day history.
 
 ## Install on iPhone
 
@@ -71,6 +71,8 @@ below BMR.
 
 1. ✅ Profile, daily targets, home screen, water.
 2. ✅ Photo → recognition → confirmation → diary; text input; pending queue.
+   Plus: ‹ › to open past days (view, edit, log afterwards); History with calories per day,
+   averages, days within target and the balance against maintenance.
 3. Repeat, My foods, USDA table, barcode and label.
 4. Weight log, weekly report, target adjustment, badge.
 5. Hints, Finish day, export/import, Shortcuts instructions.

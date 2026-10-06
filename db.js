@@ -53,7 +53,10 @@ async function run(storeName, mode, action) {
 export const entriesForDay = (day) =>
   run("entries", "readonly", (store) => store.index("day").getAll(day))
     .then((list) => list.sort((a, b) => a.time - b.time));
-export const getEntry = (id) => run("entries", "readonly", (store) => store.get(id));
+// Day keys are "YYYY-MM-DD", so a string range is a date range (both ends included).
+export const entriesBetween = (fromDay, toDay) =>
+  run("entries", "readonly", (store) => store.index("day").getAll(IDBKeyRange.bound(fromDay, toDay)));
+export const getEntry =(id) => run("entries", "readonly", (store) => store.get(id));
 export const putEntry =(entry) => run("entries", "readwrite", (store) => store.put(entry));
 export const deleteEntry = (id) => run("entries", "readwrite", (store) => store.delete(id));
 

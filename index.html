@@ -12,15 +12,20 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header>
     <img src="icons/icon-192.png" alt="" class="logo">
+    <button id="day-prev" class="icon-button nav" aria-label="Previous day">‹</button>
     <div class="title">
-      <h1>Today</h1>
-      <div id="date" class="muted small"></div>
+      <h1 id="day-title">Today</h1>
+      <div class="muted small"><span id="date"></span><button id="day-today" class="link" hidden>· back to today</button></div>
     </div>
+    <button id="day-next" class="icon-button nav" aria-label="Next day">›</button>
+    <button id="open-stats" class="icon-button" aria-label="History and statistics">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 20V12M12 20V5M19 20v-9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>
+    </button>
     <button id="open-settings" class="icon-button" aria-label="Settings">⚙︎</button>
   </header>
 
@@ -116,6 +121,21 @@
     </form>
   </dialog>
 
+  <dialog id="stats-dialog">
+    <h2>History</h2>
+    <div class="segmented stats-range" role="radiogroup" aria-label="Period">
+      <label><input type="radio" name="stats-range" value="7" checked><span>7 days</span></label>
+      <label><input type="radio" name="stats-range" value="30"><span>30 days</span></label>
+    </div>
+    <div id="stats-summary" class="stats-summary"></div>
+    <div id="stats-readout" class="stats-readout small"></div>
+    <svg id="stats-chart" class="stats-chart" role="img" aria-label="Calories per day"></svg>
+    <ol id="stats-days" class="stats-days"></ol>
+    <div class="dialog-actions">
+      <button type="button" id="stats-close" class="secondary">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="profile-dialog">
     <form id="profile-form" method="dialog">
       <h2>Your profile</h2>
@@ -184,6 +204,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=5"></script>
+  <script type="module" src="app.js?v=6"></script>
 </body>
 </html>

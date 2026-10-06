@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bmr, targets, dayKey, totals, DEFAULT_PROFILE } from "./nutrition.js";
+import { bmr, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize, DEFAULT_PROFILE } from "./nutrition.js";
 
 const NOW = new Date(2026, 9, 6, 12, 0);
 const man = { ...DEFAULT_PROFILE, birthYear: 1990, weightKg: 85, heightCm: 180, activity: "moderate" };
@@ -53,4 +53,34 @@ test("totals skip pending entries", () => {
   assert.equal(sum.kcal, 400);
   assert.equal(sum.protein, 30);
   assert.equal(sum.fiber, 4);
+});
+
+test("shiftDay crosses months and years", () => {
+  assert.equal(shiftDay("2026-10-01", -1), "2026-09-30");
+  assert.equal(shiftDay("2026-12-31", 1), "2027-01-01");
+  assert.equal(shiftDay("2026-03-29", 1), "2026-03-30"); // DST change in Europe
+});
+
+test("timeOnDay keeps the entry inside that diary day", () => {
+  assert.equal(dayKey(new Date(timeOnDay("2026-10-04", new Date(2026, 9, 6, 13, 5)))), "2026-10-04");
+  assert.equal(dayKey(new Date(timeOnDay("2026-10-04", new Date(2026, 9, 7, 1, 30)))), "2026-10-04");
+});
+
+test("dailyStats fills empty days and summarize averages logged days only", () => {
+  const entries = [
+    { day: "2026-10-04", status: "confirmed", items: [{ kcal: 1800, protein: 150 }] },
+    { day: "2026-10-06", status: "confirmed", items: [{ kcal: 2400, protein: 110 }] },
+    { day: "2026-10-06", status: "pending", items: [{ kcal: 999 }] },
+  ];
+  const days = dailyStats(entries, "2026-10-06", 3);
+  assert.deepEqual(days.map((d) => [d.day, d.logged, d.kcal]), [
+    ["2026-10-04", true, 1800], ["2026-10-05", false, 0], ["2026-10-06", true, 2400],
+  ]);
+  const s = summarize(days, { kcal: 2100, tdee: 2700 });
+  assert.equal(s.loggedDays, 2);
+  assert.equal(s.avgKcal, 2100);
+  assert.equal(s.avgProtein, 130);
+  assert.equal(s.daysOnTarget, 1);
+  assert.equal(s.balanceKcal, -1200);
+  assert.equal(s.fatKg, -0.16);
 });

@@ -43,6 +43,10 @@ header {
 .title { flex: 1; }
 h1 { font-size: 20px; margin: 0; line-height: 1.1; }
 .icon-button { background: none; border: 0; color: var(--muted); font-size: 24px; padding: 6px; }
+.icon-button.nav { font-size: 30px; line-height: 1; padding: 2px 8px 6px; }
+.icon-button:disabled { opacity: 0.25; }
+.title { min-width: 0; }
+.link { background: none; border: 0; padding: 0 0 0 4px; color: var(--green); font-size: 13px; }
 
 main { display: flex; flex-direction: column; gap: 12px; }
 
@@ -251,3 +255,29 @@ textarea { resize: none; }
 .correct button { flex: none; padding: 0 12px; }
 .danger { color: var(--red); }
 .hidden { display: none !important; }
+
+/* --- history --- */
+#stats-dialog[open] { display: flex; flex-direction: column; gap: 12px; }
+.stats-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: #1a1a1e; border: 1px solid var(--card-edge); border-radius: 12px; padding: 8px 10px; }
+.stat .label { font-size: 12px; color: var(--muted); }
+.stat .value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .sub { font-size: 12px; color: var(--muted); }
+.stats-summary .note { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.stats-readout { min-height: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats-chart { width: 100%; aspect-ratio: 340 / 150; height: auto; flex: none; display: block; touch-action: manipulation; }
+.stats-chart .halo { stroke: #141416; stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; }
+.stats-chart .under { fill: var(--green); }
+.stats-chart .over { fill: var(--red); }
+.stats-chart .empty { fill: #3a3a40; }
+.stats-chart .selected { stroke: var(--text); stroke-width: 1.5; }
+.stats-chart .target { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.stats-chart text { fill: var(--muted); font-size: 10px; }
+.stats-chart .hit { fill: transparent; cursor: pointer; }
+.stats-days { list-style: none; margin: 0; padding: 0; }
+.stats-days li { display: flex; gap: 10px; align-items: baseline; padding: 9px 2px; border-top: 1px solid var(--card-edge); cursor: pointer; font-variant-numeric: tabular-nums; }
+.stats-days .when { flex: 1; }
+.stats-days .p { color: var(--muted); font-size: 13px; width: 56px; text-align: right; }
+.stats-days .k { width: 86px; text-align: right; }
+.stats-days .flag { width: 40px; font-size: 12px; color: var(--red); }
+.stats-days li.empty { color: var(--muted); }

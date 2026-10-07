@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header>
@@ -71,7 +71,7 @@
     <button id="add-photo" class="add primary">📷<span>Photo</span></button>
     <button id="add-album" class="add">🖼<span>Album</span></button>
     <button id="add-text" class="add">✎<span>Text</span></button>
-    <button class="add" data-soon="3">↻<span>Repeat</span></button>
+    <button id="add-repeat" class="add">↻<span>Repeat</span></button>
     <button class="add" data-soon="3">▥<span>Barcode</span></button>
   </nav>
 
@@ -116,12 +116,23 @@
         </div>
       </div>
       <ul id="entry-items" class="entry-items"></ul>
+      <button type="button" id="entry-again" class="secondary wide">↻ Log again today</button>
       <div class="dialog-actions">
         <button type="button" id="entry-delete" class="secondary danger">Delete</button>
         <button type="button" id="entry-later" class="secondary">Later</button>
         <button type="submit" id="entry-save" class="primary-button">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="repeat-dialog">
+    <h2>Repeat a meal</h2>
+    <p class="muted small">Meals from the last 30 days. Tap one to log it again — no new photo needed.</p>
+    <ol id="repeat-list" class="feed repeat-list"></ol>
+    <div id="repeat-empty" class="muted small">No saved meals yet.</div>
+    <div class="dialog-actions">
+      <button type="button" id="repeat-close" class="secondary">Close</button>
+    </div>
   </dialog>
 
   <dialog id="stats-dialog">
@@ -207,6 +218,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=8"></script>
+  <script type="module" src="app.js?v=9"></script>
 </body>
 </html>

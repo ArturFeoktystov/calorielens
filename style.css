@@ -281,3 +281,7 @@ textarea { resize: none; }
 .stats-days .k { width: 86px; text-align: right; }
 .stats-days .flag { width: 40px; font-size: 12px; color: var(--red); }
 .stats-days li.empty { color: var(--muted); }
+
+/* --- repeat --- */
+.repeat-list { max-height: 55vh; overflow-y: auto; margin: 4px 0 12px; }
+#entry-again { margin-top: 2px; }

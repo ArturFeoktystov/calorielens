@@ -4,13 +4,13 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-} from "./nutrition.js?v=8";
+} from "./nutrition.js?v=9";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   requestPersistence,
-} from "./db.js?v=8";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=8";
-import { photoTakenAt } from "./exif.js?v=8";
+} from "./db.js?v=9";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=9";
+import { photoTakenAt } from "./exif.js?v=9";
 
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
@@ -325,7 +325,10 @@ function renderEntry() {
 
   // Re-estimating needs the full photos or the text.
   $("entry-correct").classList.toggle("hidden", !(images.length || current.text));
-  $("entry-later").classList.toggle("hidden", current.status !== "pending");
+  $("entry-later").classList.toggle("hidden", current.status !== "pending" || Boolean(current.unsaved));
+  $("entry-again").classList.toggle("hidden", current.status !== "confirmed");
+  $("entry-delete").textContent = current.unsaved ? "Cancel" : "Delete";
+  $("entry-delete").classList.toggle("danger", !current.unsaved);
   $("entry-save").disabled = busy || !items.length;
   $("entry-reestimate").disabled = busy;
 }
@@ -427,14 +430,21 @@ $("entry-form").addEventListener("submit", async (event) => {
   delete current.image; // keep only the thumbnail
   delete current.images;
   delete current.error;
+  delete current.unsaved;
+  const { day } = current;
   await putEntry(current);
   current = null;
-  render();
+  if (day !== shownDay()) showDay(day);
+  else render();
   toast("Saved.");
 });
 
 $("entry-later").addEventListener("click", () => entryDialog.close());
 $("entry-delete").addEventListener("click", async () => {
+  if (current.unsaved) { // a repeat that was never saved: nothing to delete
+    entryDialog.close();
+    return;
+  }
   if (!confirm("Delete this entry?")) return;
   await deleteEntry(current.id);
   entryDialog.close();
@@ -446,6 +456,71 @@ window.addEventListener("online", async () => {
   const waiting = (await entriesForDay(dayKey())).filter((e) => e.status === "pending" && !e.items.length);
   if (waiting.length) toast(`Back online — tap ${waiting.length === 1 ? "the waiting entry" : "the waiting entries"} in Meals.`);
 });
+
+// --- repeat: log a saved meal again, with its thumbnail and numbers, without asking Claude --------
+// The copy opens in the entry dialog (grams can be changed) and is stored only when Saved.
+
+const REPEAT_DAYS = 30;
+const repeatDialog = $("repeat-dialog");
+let repeatChoices = [];
+
+function repeatOf(entry, day) {
+  return {
+    id: crypto.randomUUID(),
+    day,
+    time: day === dayKey() ? Date.now() : timeOnDay(day),
+    source: entry.source,
+    status: "pending",
+    unsaved: true,
+    thumb: entry.thumb,
+    text: entry.text,
+    items: structuredClone(entry.items),
+    question: "",
+    repeatOf: entry.id,
+  };
+}
+
+function openRepeat(entry, day) {
+  repeatDialog.close();
+  openEntry(repeatOf(entry, day));
+  const where = day === dayKey() ? "today" : dayTitle(day);
+  setEntryStatus(`Logging this again for ${where}. Change the grams if needed, then Save.`);
+}
+
+$("entry-again").addEventListener("click", () => openRepeat(current, dayKey()));
+
+$("add-repeat").addEventListener("click", async () => {
+  const today = dayKey();
+  const entries = (await entriesBetween(shiftDay(today, 1 - REPEAT_DAYS), today))
+    .filter((e) => e.status === "confirmed" && e.items?.length)
+    .sort((a, b) => b.time - a.time);
+  // The same meal logged several times shows once: the latest copy, with how often it was eaten.
+  const byMeal = new Map();
+  for (const entry of entries) {
+    const key = entry.items.map((i) => `${i.name.toLowerCase()}:${Math.round(i.grams)}`).sort().join("|");
+    const seen = byMeal.get(key);
+    if (seen) seen.count++;
+    else byMeal.set(key, { entry, count: 1 });
+  }
+  repeatChoices = [...byMeal.values()];
+  $("repeat-list").innerHTML = repeatChoices.map(({ entry, count }, index) => {
+    const thumb = entry.thumb
+      ? `<img src="${entry.thumb}" alt="">`
+      : `<span class="no-thumb">${entry.source === "text" ? "✎" : "📷"}</span>`;
+    const when = `${dayTitle(entry.day)}${count > 1 ? ` · ${count}×` : ""}`;
+    return `<li data-index="${index}">${thumb}
+      <div class="what"><div class="names">${escapeHtml(entry.items.map((i) => i.name).join(", "))}</div>
+      <div class="muted small">${when}</div></div>
+      <span class="kcal">${fmt(entryKcal(entry))} kcal</span></li>`;
+  }).join("");
+  $("repeat-empty").classList.toggle("hidden", repeatChoices.length > 0);
+  repeatDialog.showModal();
+});
+$("repeat-list").addEventListener("click", (event) => {
+  const li = event.target.closest("li[data-index]");
+  if (li) openRepeat(repeatChoices[li.dataset.index].entry, shownDay());
+});
+$("repeat-close").addEventListener("click", () => repeatDialog.close());
 
 // --- history: calories per day, averages, tap a day to open it -----------------------------------
 

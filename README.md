@@ -73,7 +73,7 @@ below BMR.
 2. ✅ Photo → recognition → confirmation → diary; text input; pending queue.
    Plus: ‹ › to open past days (view, edit, log afterwards); History with calories per day,
    averages, days within target and the balance against maintenance.
-3. Repeat, My foods, USDA table, barcode and label.
+3. ✅ Repeat (log a saved meal again, no new photo). Next: My foods, USDA table, barcode and label.
 4. Weight log, weekly report, target adjustment, badge.
 5. Hints, Finish day, export/import, Shortcuts instructions.
 

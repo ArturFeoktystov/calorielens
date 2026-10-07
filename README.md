@@ -52,7 +52,7 @@ below BMR.
   through a confirmation screen where grams can be edited.
 - **Food data**: ~200 common foods from USDA FoodData Central (CC0) bundled as JSON; anything else
   is the model's estimate, marked "≈". Every manual correction is saved to **My foods**.
-- **Input**: photo (camera, or an earlier photo from the album — it goes to the day and time it was taken), text (voice = the iPhone keyboard's dictation button), repeat a past meal,
+- **Input**: photo (camera, or an earlier photo from the album; every entry has a Day field to put it on any day), text (voice = the iPhone keyboard's dictation button), repeat a past meal,
   barcode (photo of the barcode → Open Food Facts; if missing, photo of the nutrition label →
   Claude reads it → saved to My foods).
 - **Offline**: entries are saved as *pending* and recognized when the network is back.
@@ -94,6 +94,5 @@ node --test                # unit tests for the target math
 | `recognize.js` | Claude prompt, JSON schema and API call for food recognition |
 | `nutrition.js` | Target math and day boundaries (pure functions, tested) |
 | `db.js` | IndexedDB storage |
-| `exif.js` | Reads when an album photo was taken (tested) |
 | `manifest.webmanifest`, `icons/` | Home-screen name and icon |
 | `sw.js` | Service worker: fresh files on every launch, last copy for offline |

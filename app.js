@@ -4,14 +4,12 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-} from "./nutrition.js?v=9";
+} from "./nutrition.js?v=10";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   requestPersistence,
-} from "./db.js?v=9";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=9";
-import { photoTakenAt } from "./exif.js?v=9";
-
+} from "./db.js?v=10";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=10";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -175,16 +173,17 @@ $("entry-add-photo").addEventListener("click", () => {
   addingPhoto = true;
   $("album-input").click();
 });
-for (const [inputId, fromAlbum] of [["photo-input", false], ["album-input", true]]) {
+for (const inputId of ["photo-input", "album-input"]) {
   const input = $(inputId);
   input.addEventListener("change", () => {
     const file = input.files[0];
     input.value = ""; // allow picking the same photo again
-    if (file) addPhoto(file, fromAlbum);
+    if (file) addPhoto(file);
   });
 }
 
-async function addPhoto(file, fromAlbum) {
+// A new photo goes into the day on screen; the Day field in the entry moves it to another day.
+async function addPhoto(file) {
   try {
     const img = await loadImage(file);
     const image = toJpeg(img, PHOTO_MAX_SIDE, 0.82).split(",")[1];
@@ -196,21 +195,10 @@ async function addPhoto(file, fromAlbum) {
       return;
     }
     const entry = newEntry("photo");
-    // An album photo goes to the day and time it was taken, if the photo says so.
-    const takenAt = fromAlbum ? await photoTakenAt(file) : null;
-    if (takenAt && takenAt.getTime() <= Date.now()) {
-      entry.day = dayKey(takenAt);
-      entry.time = takenAt.getTime();
-    }
     entry.images = [image];
     entry.thumb = toJpeg(img, THUMB_SIDE, 0.7, true);
     await putEntry(entry);
-    if (entry.day !== shownDay()) {
-      showDay(entry.day);
-      toast(`Added to ${dayTitle(entry.day)} — the photo was taken then.`);
-    } else {
-      render();
-    }
+    render();
     openEntry(entry);
     recognize();
   } catch {
@@ -326,6 +314,9 @@ function renderEntry() {
   // Re-estimating needs the full photos or the text.
   $("entry-correct").classList.toggle("hidden", !(images.length || current.text));
   $("entry-later").classList.toggle("hidden", current.status !== "pending" || Boolean(current.unsaved));
+  $("entry-day").value = current.day;
+  $("entry-day").max = dayKey();
+  $("entry-day-name").textContent = dayTitle(current.day);
   $("entry-again").classList.toggle("hidden", current.status !== "confirmed");
   $("entry-delete").textContent = current.unsaved ? "Cancel" : "Delete";
   $("entry-delete").classList.toggle("danger", !current.unsaved);
@@ -338,6 +329,18 @@ function itemFacts(item) {
   const alcohol = item.alcohol > 0 ? ` · alcohol ${fmt(item.alcohol)} g` : "";
   return `${fmt(item.kcal)} kcal · P ${fmt(item.protein)} · F ${fmt(item.fat)} · C ${fmt(item.carbs)}${alcohol}${guess}`;
 }
+
+// Moves the entry to another diary day, keeping its clock time. Applied to storage on Save.
+$("entry-day").addEventListener("change", () => {
+  const day = $("entry-day").value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > dayKey()) {
+    $("entry-day").value = current.day; // empty or in the future
+    return;
+  }
+  current.time = timeOnDay(day, new Date(current.time));
+  current.day = day;
+  $("entry-day-name").textContent = dayTitle(day);
+});
 
 // Editing grams scales every nutrient of that item proportionally.
 $("entry-items").addEventListener("input", (event) => {

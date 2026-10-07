@@ -285,3 +285,5 @@ textarea { resize: none; }
 /* --- repeat --- */
 .repeat-list { max-height: 55vh; overflow-y: auto; margin: 4px 0 12px; }
 #entry-again { margin-top: 2px; }
+.day-field { flex-direction: row; align-items: center; gap: 10px; }
+.day-field input { width: auto; flex: none; padding: 7px 10px; }

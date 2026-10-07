@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <header>
@@ -102,6 +102,10 @@
           <div id="entry-macros" class="muted small"></div>
         </div>
       </div>
+      <label class="day-field">Day
+        <input id="entry-day" type="date" required>
+        <span id="entry-day-name" class="muted small"></span>
+      </label>
       <div id="entry-photos" class="entry-photos">
         <div id="entry-photo-list" class="photo-list"></div>
         <button type="button" id="entry-add-photo" class="secondary">＋ Add photo</button>
@@ -218,6 +222,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=9"></script>
+  <script type="module" src="app.js?v=10"></script>
 </body>
 </html>

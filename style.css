@@ -287,3 +287,12 @@ textarea { resize: none; }
 #entry-again { margin-top: 2px; }
 .day-field { flex-direction: row; align-items: center; gap: 10px; }
 .day-field input { width: auto; flex: none; padding: 7px 10px; }
+
+/* --- water: plain water + drinks logged as food --- */
+.bar.split { display: flex; }
+.bar.split .bar-fill { border-radius: 0; }
+.bar.split .bar-fill:first-child { border-radius: 4px 0 0 4px; }
+.bar-fill.drinks { background: #2a7fa8; }
+.water-note { margin-top: 6px; }
+.water-note:empty { display: none; }
+.item-facts .drink { color: var(--water); }

@@ -84,3 +84,11 @@ test("dailyStats fills empty days and summarize averages logged days only", () =
   assert.equal(s.balanceKcal, -1200);
   assert.equal(s.fatKg, -0.16);
 });
+test("drinks add to water; entries saved before fluidMl count as 0", () => {
+  const entries = [
+    { status: "confirmed", items: [{ kcal: 60, fluidMl: 250 }, { kcal: 140, fluidMl: 330 }] },
+    { status: "confirmed", items: [{ kcal: 300 }] },
+    { status: "pending", items: [{ kcal: 5, fluidMl: 500 }] },
+  ];
+  assert.equal(totals(entries).fluidMl, 580);
+});

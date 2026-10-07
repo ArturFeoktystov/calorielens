@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header>
@@ -52,7 +52,8 @@
         <span>Water</span>
         <span id="water-text" class="muted"></span>
       </div>
-      <div class="bar"><div id="water-fill" class="bar-fill water"></div></div>
+      <div class="bar split"><div id="water-fill" class="bar-fill water"></div><div id="drinks-fill" class="bar-fill drinks"></div></div>
+      <div id="water-note" class="muted small water-note"></div>
       <div class="water-buttons">
         <button class="pill" data-water="-250">−250</button>
         <button class="pill" data-water="250">+250 ml</button>
@@ -222,6 +223,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=10"></script>
+  <script type="module" src="app.js?v=11"></script>
 </body>
 </html>

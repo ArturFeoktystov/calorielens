@@ -4,12 +4,12 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-} from "./nutrition.js?v=10";
+} from "./nutrition.js?v=11";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   requestPersistence,
-} from "./db.js?v=10";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=10";
+} from "./db.js?v=11";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=11";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -88,8 +88,14 @@ async function render() {
   if (eaten.alcohol > 0) extras.push(`Alcohol ${fmt(eaten.alcohol)} g`);
   $("extras").textContent = extras.join(" · ");
 
-  $("water-text").textContent = `${(waterMl / 1000).toFixed(2)} / ${(goal.waterMl / 1000).toFixed(1)} L`;
-  $("water-fill").style.width = `${Math.min(waterMl / goal.waterMl, 1) * 100}%`;
+  // Plain water from the buttons plus drinks logged as food (tea, coffee, milk, soft drinks).
+  const drinksMl = eaten.fluidMl;
+  const liters = (ml) => (ml / 1000).toFixed(2);
+  $("water-text").textContent = `${liters(waterMl + drinksMl)} / ${(goal.waterMl / 1000).toFixed(1)} L`;
+  const waterShare = Math.min(waterMl / goal.waterMl, 1);
+  $("water-fill").style.width = `${waterShare * 100}%`;
+  $("drinks-fill").style.width = `${Math.min(drinksMl / goal.waterMl, 1 - waterShare) * 100}%`;
+  $("water-note").textContent = drinksMl > 0 ? `incl. ${liters(drinksMl)} L from drinks` : "";
 
   $("feed").innerHTML = entries.map((entry) => {
     const time = new Date(entry.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -277,7 +283,7 @@ function setEntryStatus(text, kind = "") {
 
 function renderEntry() {
   const items = current.items;
-  const sum = Object.fromEntries(NUTRIENT_FIELDS.map((n) => [n, items.reduce((s, i) => s + i[n], 0)]));
+  const sum = Object.fromEntries(NUTRIENT_FIELDS.map((n) => [n, items.reduce((s, i) => s + (i[n] ?? 0), 0)]));
   $("entry-thumb").src = current.thumb || "";
   $("entry-thumb").classList.toggle("hidden", !current.thumb);
   $("entry-total").textContent = items.length ? `${fmt(sum.kcal)} kcal` : (current.text ? "Text entry" : "Photo");
@@ -327,7 +333,8 @@ function renderEntry() {
 function itemFacts(item) {
   const guess = item.confidence === "low" ? ` · <span class="guess">≈ rough guess</span>` : "";
   const alcohol = item.alcohol > 0 ? ` · alcohol ${fmt(item.alcohol)} g` : "";
-  return `${fmt(item.kcal)} kcal · P ${fmt(item.protein)} · F ${fmt(item.fat)} · C ${fmt(item.carbs)}${alcohol}${guess}`;
+  const water = item.fluidMl > 0 ? ` · <span class="drink">💧 ${fmt(item.fluidMl)} ml</span>` : "";
+  return `${fmt(item.kcal)} kcal · P ${fmt(item.protein)} · F ${fmt(item.fat)} · C ${fmt(item.carbs)}${alcohol}${water}${guess}`;
 }
 
 // Moves the entry to another diary day, keeping its clock time. Applied to storage on Save.
@@ -353,7 +360,7 @@ $("entry-items").addEventListener("input", (event) => {
   const grams = Number(event.target.value);
   if (!(grams >= 0) || !item.grams) return;
   const factor = grams / item.grams;
-  for (const n of NUTRIENT_FIELDS) item[n] *= factor;
+  for (const n of NUTRIENT_FIELDS) item[n] = (item[n] ?? 0) * factor; // older entries have no fluidMl
   item.grams = grams;
   li.querySelector(".item-facts").innerHTML = itemFacts(item);
   const items = current.items;

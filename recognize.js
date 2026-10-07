@@ -3,14 +3,16 @@
 
 import Anthropic from "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.129.0/+esm";
 
-export const NUTRIENT_FIELDS = ["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol"];
+// fluidMl: drinkable liquid that counts toward the day's water (see the prompt).
+export const NUTRIENT_FIELDS = ["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol", "fluidMl"];
 
 const SYSTEM_PROMPT = `You are a nutrition estimator inside a calorie-tracking app. The user is on a fat-loss diet and relies on your numbers, so be realistic, not optimistic.
 
 You get a photo of a meal, a text description, or both. List every distinct food or drink as a separate item and estimate for each:
 - grams: the edible portion as served (cooked weight for cooked foods; ml ≈ g for drinks);
 - kcal, protein, fat, carbs, fiber, sugar (total sugars) in grams, based on standard food composition data (USDA-like values);
-- alcohol: grams of pure ethanol (0 for non-alcoholic items).
+- alcohol: grams of pure ethanol (0 for non-alcoholic items);
+- fluidMl: ml of drink that counts toward daily water - the whole volume of water, tea, coffee, milk, kefir, cocoa, soft drinks (regular or diet) and juice; 0 for alcoholic drinks (beer, wine, spirits, cocktails), soups and all solid food.
 
 Estimating portions from a photo:
 - Use plate, cutlery, hands, cups and packaging as size references.

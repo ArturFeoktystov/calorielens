@@ -34,7 +34,7 @@ Data entered in Safari and in the home-screen app is stored separately — use t
 | Fat | 0.8 g/kg, at least 20 % of calories |
 | Carbs | the rest |
 | Fiber | 14 g per 1000 kcal, at least 25 g |
-| Water | 35 ml/kg; tea and coffee count, soup does not |
+| Water | 35 ml/kg: plain water buttons + drinks logged as food (tea, coffee, milk, soft drinks, juice); not alcohol or soup |
 | Sugar, alcohol | shown, no target |
 
 A new day starts at **04:00**, so a 00:30 snack belongs to the day before.

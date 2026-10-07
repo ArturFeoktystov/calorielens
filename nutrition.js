@@ -141,7 +141,7 @@ export function summarize(days, goal) {
   };
 }
 
-export const NUTRIENTS =["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol"];
+export const NUTRIENTS = ["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol", "fluidMl"];
 
 // Sums confirmed entries; pending entries (not yet recognized) are not counted.
 export function totals(entries) {

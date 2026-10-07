@@ -4,12 +4,13 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-} from "./nutrition.js?v=6";
+} from "./nutrition.js?v=8";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   requestPersistence,
-} from "./db.js?v=6";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=6";
+} from "./db.js?v=8";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=8";
+import { photoTakenAt } from "./exif.js?v=8";
 
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
@@ -165,14 +166,25 @@ $("add-photo").addEventListener("click", () => {
   addingPhoto = false;
   $("photo-input").click();
 });
+$("add-album").addEventListener("click", () => {
+  addingPhoto = false;
+  $("album-input").click();
+});
+// The album input lets iOS offer both the camera and the photo library.
 $("entry-add-photo").addEventListener("click", () => {
   addingPhoto = true;
-  $("photo-input").click();
+  $("album-input").click();
 });
-$("photo-input").addEventListener("change", async () => {
-  const file = $("photo-input").files[0];
-  $("photo-input").value = ""; // allow picking the same photo again
-  if (!file) return;
+for (const [inputId, fromAlbum] of [["photo-input", false], ["album-input", true]]) {
+  const input = $(inputId);
+  input.addEventListener("change", () => {
+    const file = input.files[0];
+    input.value = ""; // allow picking the same photo again
+    if (file) addPhoto(file, fromAlbum);
+  });
+}
+
+async function addPhoto(file, fromAlbum) {
   try {
     const img = await loadImage(file);
     const image = toJpeg(img, PHOTO_MAX_SIDE, 0.82).split(",")[1];
@@ -184,16 +196,27 @@ $("photo-input").addEventListener("change", async () => {
       return;
     }
     const entry = newEntry("photo");
+    // An album photo goes to the day and time it was taken, if the photo says so.
+    const takenAt = fromAlbum ? await photoTakenAt(file) : null;
+    if (takenAt && takenAt.getTime() <= Date.now()) {
+      entry.day = dayKey(takenAt);
+      entry.time = takenAt.getTime();
+    }
     entry.images = [image];
     entry.thumb = toJpeg(img, THUMB_SIDE, 0.7, true);
     await putEntry(entry);
-    render();
+    if (entry.day !== shownDay()) {
+      showDay(entry.day);
+      toast(`Added to ${dayTitle(entry.day)} — the photo was taken then.`);
+    } else {
+      render();
+    }
     openEntry(entry);
     recognize();
   } catch {
     toast("Couldn't read that photo. Try again.");
   }
-});
+}
 
 $("add-text").addEventListener("click", () => {
   $("text-form").reset();

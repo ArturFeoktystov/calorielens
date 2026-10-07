@@ -34,9 +34,17 @@ function open() {
       db.createObjectStore("water", { keyPath: "day" });
       db.createObjectStore("weights", { keyPath: "day" });
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+    request.onsuccess = () => {
+      const db = request.result;
+      // Let a newer version (or a delete) proceed instead of waiting forever on this connection;
+      // the next call reopens it.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => reject(request.error);  });
   return dbPromise;
 }
 

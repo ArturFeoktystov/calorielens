@@ -39,9 +39,14 @@ Data entered in Safari and in the home-screen app is stored separately — use t
 
 A new day starts at **04:00**, so a 00:30 snack belongs to the day before.
 
+**Weight**: weigh in once a week (same day, morning, before eating). The Weight card opens a chart
+(3 months / 6 months / all) with the planned pace as a dashed line, the change, the rate per week
+(a least-squares line through the weigh-ins, so one odd reading doesn't swing it) and a verdict:
+on track between the chosen pace − 0.25 % and 1 % a week, "too fast" above 1 % (muscle at risk).
+The latest weigh-in is the profile weight, so the targets follow it.
+
 **Weekly report** every Monday. A target change (±100–150 kcal) is proposed at most every 2 weeks,
-only with at least 10 weigh-ins in the last 14 days, always with your confirmation, and never
-below BMR.
+only with weigh-ins at least 2 weeks apart, always with your confirmation, and never below BMR.
 
 ## Decisions
 
@@ -74,7 +79,7 @@ below BMR.
    Plus: ‹ › to open past days (view, edit, log afterwards); History with calories per day,
    averages, days within target and the balance against maintenance.
 3. ✅ Repeat (log a saved meal again, no new photo). Next: My foods, USDA table, barcode and label.
-4. Weight log, weekly report, target adjustment, badge.
+4. ✅ Weight log and chart. Next: weekly report, target adjustment, badge.
 5. Hints, Finish day, export/import, Shortcuts instructions.
 
 Later: push server with numbers, auto-save when the model is confident, Haiku quality check on

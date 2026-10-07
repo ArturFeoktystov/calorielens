@@ -4,12 +4,13 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-} from "./nutrition.js?v=11";
+  weightTrend, daysBetween,
+} from "./nutrition.js?v=12";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
-  requestPersistence,
-} from "./db.js?v=11";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=11";
+  allWeights, putWeight, deleteWeight, requestPersistence,
+} from "./db.js?v=12";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=12";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -96,6 +97,7 @@ async function render() {
   $("water-fill").style.width = `${waterShare * 100}%`;
   $("drinks-fill").style.width = `${Math.min(drinksMl / goal.waterMl, 1 - waterShare) * 100}%`;
   $("water-note").textContent = drinksMl > 0 ? `incl. ${liters(drinksMl)} L from drinks` : "";
+  renderWeightCard();
 
   $("feed").innerHTML = entries.map((entry) => {
     const time = new Date(entry.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -637,6 +639,198 @@ $("stats-days").addEventListener("click", (event) => {
   showDay(li.dataset.day);
 });
 
+// --- weight: weekly weigh-ins, chart, rate per week vs the plan -----------------------------------
+// The latest weigh-in is also the profile weight, so the daily targets follow it.
+
+const WEIGH_EVERY_DAYS = 7;
+const WEIGHT_CHART = { width: 340, height: 170, top: 12, bottom: 18, left: 30, right: 8 };
+const weightDialog = $("weight-dialog");
+const weightForm = $("weight-form");
+let weightView = null; // { trend, startDay, endDay } for the chart taps
+
+const kgText = (kg) => `${kg.toFixed(1)} kg`;
+const signedKg = (kg, digits = 1) => `${kg > 0 ? "+" : kg < 0 ? "−" : "±"}${Math.abs(kg).toFixed(digits)}`;
+
+async function renderWeightCard() {
+  const weights = await allWeights();
+  const card = $("weight-card");
+  const t = weightTrend(weights);
+  if (!t.last) {
+    $("weight-now").textContent = "";
+    $("weight-sub").textContent = "Tap to log your weight — once a week is enough.";
+    card.classList.add("due");
+    return;
+  }
+  const since = daysBetween(t.last.day, dayKey());
+  const recent = weightTrend(weights, shiftDay(dayKey(), -30));
+  const parts = [];
+  if (recent.perWeek !== null) parts.push(`${signedKg(recent.perWeek, 2)} kg/week`);
+  parts.push(since === 0 ? "weighed today" : since === 1 ? "weighed yesterday" : `weighed ${since} days ago`);
+  if (since >= WEIGH_EVERY_DAYS) parts.push("time to weigh in");
+  $("weight-now").textContent = kgText(t.last.kg);
+  $("weight-sub").textContent = parts.join(" · ");
+  card.classList.toggle("due", since >= WEIGH_EVERY_DAYS);
+}
+
+function openWeight() {
+  weightForm.reset();
+  weightForm.elements.day.value = dayKey();
+  weightForm.elements.day.max = dayKey();
+  allWeights().then((weights) => {
+    const last = weightTrend(weights).last;
+    weightForm.elements.kg.value = (last?.kg ?? profile().weightKg).toFixed(1);
+  });
+  renderWeight();
+  weightDialog.showModal();
+}
+$("weight-card").addEventListener("click", openWeight);
+$("weight-card").addEventListener("keydown", (event) => { if (event.key === "Enter") openWeight(); });
+$("weight-close").addEventListener("click", () => weightDialog.close());
+weightDialog.querySelector(".weight-range").addEventListener("change", () => renderWeight());
+
+weightForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const kg = Math.round(Number(weightForm.elements.kg.value) * 10) / 10;
+  const day = weightForm.elements.day.value;
+  if (!(kg >= 35 && kg <= 250) || !day || day > dayKey()) return;
+  await putWeight(day, kg);
+  await afterWeightChange();
+  toast(`Saved ${kgText(kg)}.`);
+});
+
+// Keeps the profile weight equal to the latest weigh-in and redraws everything that depends on it.
+async function afterWeightChange() {
+  const latest = weightTrend(await allWeights()).last;
+  const p = profile();
+  if (latest && p && latest.kg !== p.weightKg) {
+    save("profile", { ...p, weightKg: latest.kg });
+    setTimeout(() => toast(`Targets updated for ${kgText(latest.kg)}.`), 1500);
+  }
+  render();
+  renderWeight();
+}
+
+async function renderWeight() {
+  const range = weightDialog.querySelector("input[name=weight-range]:checked").value;
+  const today = dayKey();
+  const all = await allWeights();
+  const startDay = range === "all" ? (weightTrend(all).first?.day ?? today) : shiftDay(today, 1 - Number(range));
+  const t = weightTrend(all, startDay);
+  const p = profile();
+  const goal = targets(p);
+
+  const tile = (label, value, sub) =>
+    `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  if (!t.last) {
+    $("weight-summary").innerHTML = `<div class="note">No weigh-ins in this period yet.</div>`;
+  } else {
+    const planPerWeek = p.goal === "cut" ? -(p.pacePct / 100) * t.last.kg : 0;
+    let paceTile;
+    if (t.perWeek === null) {
+      paceTile = tile("Per week", "—", "needs 2 weigh-ins a week apart");
+    } else {
+      paceTile = tile("Per week", `${signedKg(t.perWeek, 2)} kg`, p.goal === "cut" ? `plan ${signedKg(planPerWeek, 2)} kg` : "");
+    }
+    $("weight-summary").innerHTML =
+      tile("Now", kgText(t.last.kg), shortDate(t.last.day))
+      + tile("Change", `${signedKg(t.change)} kg`, `since ${shortDate(t.first.day)}`)
+      + paceTile
+      + tile("Verdict", ...paceVerdict(p, t, goal));
+  }
+  weightView = { trend: t, startDay, endDay: today };
+  drawWeightChart();
+
+  const newestFirst = weightTrend(all).points.slice().reverse();
+  $("weight-list").innerHTML = newestFirst.map((w, i) => {
+    const prev = newestFirst[i + 1];
+    const diff = prev ? signedKg(Math.round((w.kg - prev.kg) * 10) / 10) : "";
+    return `<li data-day="${w.day}">
+      <span class="when">${w.day === today ? "Today" : shortDate(w.day)}</span>
+      <span class="p">${diff}</span>
+      <span class="k">${kgText(w.kg)}</span>
+      <button type="button" class="item-remove" data-delete="${w.day}" aria-label="Delete">✕</button>
+    </li>`;
+  }).join("");
+}
+
+// For a cut: on track between the chosen pace (minus a little slack) and 1 % a week.
+function paceVerdict(p, t, goal) {
+  if (t.perWeek === null) return ["—", "weigh in again next week"];
+  const lossPct = (-t.perWeek / t.last.kg) * 100;
+  if (p.goal !== "cut") return [Math.abs(lossPct) < 0.25 ? "Stable" : t.perWeek < 0 ? "Losing" : "Gaining", `${Math.abs(lossPct).toFixed(2)} % a week`];
+  if (lossPct > 1) return ["Too fast", "over 1 % a week: muscle at risk — eat a bit more"];
+  if (lossPct < p.pacePct - 0.25) return ["Slower", `${lossPct.toFixed(2)} % vs ${p.pacePct} % planned · target ${fmt(goal.kcal)} kcal`];
+  return ["On track", `${lossPct.toFixed(2)} % a week, plan ${p.pacePct} %`];
+}
+
+// A line through the weigh-ins over time, with the planned pace as a dashed line for a cut.
+function drawWeightChart(selected) {
+  const { trend: t, startDay, endDay } = weightView;
+  const { width, height, top, bottom, left, right } = WEIGHT_CHART;
+  const chart = $("weight-chart");
+  chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  if (!t.points.length) {
+    chart.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle">Log a weigh-in to start the chart</text>`;
+    $("weight-readout").textContent = "";
+    return;
+  }
+  const p = profile();
+  const span = Math.max(daysBetween(startDay, endDay), 7);
+  const x = (day) => left + (width - left - right) * (daysBetween(startDay, day) / span);
+  const plan = p.goal === "cut" ? (day) => t.first.kg * (1 - (p.pacePct / 100) * (daysBetween(t.first.day, day) / 7)) : null;
+  const values = t.points.map((w) => w.kg);
+  if (plan) values.push(plan(endDay));
+  let lo = Math.floor(Math.min(...values) - 0.5);
+  let hi = Math.ceil(Math.max(...values) + 0.5);
+  if (hi - lo < 2) { lo -= 1; hi += 1; }
+  const y = (kg) => top + (height - top - bottom) * (1 - (kg - lo) / (hi - lo));
+  const parts = [];
+
+  for (const kg of [lo, (lo + hi) / 2, hi]) { // three gridlines with labels
+    parts.push(`<line class="grid" x1="${left}" x2="${width - right}" y1="${y(kg)}" y2="${y(kg)}"/>`);
+    parts.push(`<text x="${left - 4}" y="${y(kg) + 3}" text-anchor="end">${Number.isInteger(kg) ? kg : kg.toFixed(1)}</text>`);
+  }
+  for (const day of [startDay, endDay]) {
+    const label = dateOf(day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    parts.push(`<text x="${x(day)}" y="${height - 4}" text-anchor="${day === startDay ? "start" : "end"}">${label}</text>`);
+  }
+  if (plan) {
+    parts.push(`<line class="plan" x1="${x(t.first.day)}" y1="${y(t.first.kg)}" x2="${x(endDay)}" y2="${y(plan(endDay))}"/>`);
+    parts.push(`<text class="halo" x="${x(endDay) - 2}" y="${y(plan(endDay)) - 5}" text-anchor="end">plan</text>`);
+  }
+  parts.push(`<path class="line" d="${t.points.map((w, i) => `${i ? "L" : "M"}${x(w.day)},${y(w.kg)}`).join(" ")}"/>`);
+  const sel = selected ?? t.points.length - 1;
+  t.points.forEach((w, i) => {
+    parts.push(`<circle class="dot${i === sel ? " selected" : ""}" cx="${x(w.day)}" cy="${y(w.kg)}" r="${i === sel ? 4.5 : 3.5}"/>`);
+    parts.push(`<circle class="hit" data-i="${i}" cx="${x(w.day)}" cy="${y(w.kg)}" r="14"/>`);
+  });
+  chart.innerHTML = parts.join("");
+
+  const w = t.points[sel];
+  const vsPlan = plan ? ` · plan ${plan(w.day).toFixed(1)}` : "";
+  $("weight-readout").textContent = `${shortDate(w.day)} · ${kgText(w.kg)}${vsPlan}`;
+}
+
+$("weight-chart").addEventListener("click", (event) => {
+  const i = event.target.dataset?.i;
+  if (i !== undefined) drawWeightChart(Number(i));
+});
+$("weight-list").addEventListener("click", async (event) => {
+  const del = event.target.dataset?.delete;
+  if (del) {
+    if (!confirm("Delete this weigh-in?")) return;
+    await deleteWeight(del);
+    await afterWeightChange();
+    return;
+  }
+  const li = event.target.closest("li[data-day]"); // tap a row to correct it in the form above
+  if (!li) return;
+  const w = weightTrend(await allWeights()).points.find((p) => p.day === li.dataset.day);
+  weightForm.elements.kg.value = w.kg.toFixed(1);
+  weightForm.elements.day.value = w.day;
+  weightForm.elements.kg.focus();
+});
+
 // --- profile -------------------------------------------------------------------------------------
 
 const profileForm = $("profile-form");
@@ -708,10 +902,13 @@ function openProfile() {
 
 profileForm.addEventListener("input", updateProfilePreview);
 profileForm.addEventListener("submit", () => {
-  const firstRun = !profile();
-  save("profile", readProfileForm());
-  if (firstRun) requestPersistence();
-  render();
+  const before = profile();
+  const p = readProfileForm();
+  save("profile", p);
+  if (!before) requestPersistence();
+  // A weight typed into the profile is also today's weigh-in, so the chart has it.
+  if (!before || before.weightKg !== p.weightKg) putWeight(dayKey(), p.weightKg).then(render);
+  else render();
 });
 $("profile-cancel").addEventListener("click", () => $("profile-dialog").close());
 $("profile-dialog").addEventListener("cancel", (event) => { if (!profile()) event.preventDefault(); });

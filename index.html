@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <header>
@@ -59,6 +59,14 @@
         <button class="pill" data-water="250">+250 ml</button>
         <button class="pill" data-water="500">+500 ml</button>
       </div>
+    </section>
+
+    <section id="weight-card" class="card weight-card" role="button" tabindex="0" aria-label="Weight">
+      <div class="row">
+        <span>Weight</span>
+        <span id="weight-now" class="muted"></span>
+      </div>
+      <div id="weight-sub" class="muted small"></div>
     </section>
 
     <section class="card">
@@ -137,6 +145,28 @@
     <div id="repeat-empty" class="muted small">No saved meals yet.</div>
     <div class="dialog-actions">
       <button type="button" id="repeat-close" class="secondary">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="weight-dialog">
+    <h2>Weight</h2>
+    <form id="weight-form" class="weight-form">
+      <label>Weight, kg<input name="kg" type="number" inputmode="decimal" min="35" max="250" step="0.1" required></label>
+      <label>Day<input name="day" type="date" required></label>
+      <button type="submit" class="primary-button">Save</button>
+    </form>
+    <p class="muted small">Once a week is enough: same day, in the morning, after the bathroom, before eating.</p>
+    <div class="segmented weight-range" role="radiogroup" aria-label="Period">
+      <label><input type="radio" name="weight-range" value="91" checked><span>3 months</span></label>
+      <label><input type="radio" name="weight-range" value="182"><span>6 months</span></label>
+      <label><input type="radio" name="weight-range" value="all"><span>All</span></label>
+    </div>
+    <div id="weight-summary" class="stats-summary"></div>
+    <div id="weight-readout" class="stats-readout small"></div>
+    <svg id="weight-chart" class="stats-chart weight-chart" role="img" aria-label="Weight over time"></svg>
+    <ol id="weight-list" class="stats-days weight-list"></ol>
+    <div class="dialog-actions">
+      <button type="button" id="weight-close" class="secondary">Close</button>
     </div>
   </dialog>
 
@@ -223,6 +253,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=11"></script>
+  <script type="module" src="app.js?v=12"></script>
 </body>
 </html>

@@ -296,3 +296,22 @@ textarea { resize: none; }
 .water-note { margin-top: 6px; }
 .water-note:empty { display: none; }
 .item-facts .drink { color: var(--water); }
+
+/* --- weight --- */
+.weight-card { cursor: pointer; }
+.weight-card .row { margin-bottom: 2px; }
+#weight-now { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.weight-card.due #weight-sub { color: var(--fat); }
+#weight-dialog[open] { display: flex; flex-direction: column; gap: 12px; }
+.weight-form { flex-direction: row; align-items: flex-end; gap: 8px; }
+.weight-form label { flex: 1; min-width: 0; }
+.weight-form label:first-child { flex: 0 0 84px; }
+.weight-form button { flex: none; padding: 10px 16px; }
+.weight-chart { aspect-ratio: 340 / 170; }
+.weight-chart .grid { stroke: #2a2a2e; stroke-width: 1; }
+.weight-chart .line { fill: none; stroke: var(--water); stroke-width: 2; stroke-linejoin: round; }
+.weight-chart .dot { fill: var(--water); }
+.weight-chart .dot.selected { fill: var(--text); }
+.weight-chart .plan { stroke: var(--green); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.weight-list li { align-items: center; }
+.weight-list .item-remove { padding: 0 4px; }

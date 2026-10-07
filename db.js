@@ -74,6 +74,7 @@ export const setWater = (day, ml) => run("water", "readwrite", (store) => store.
 
 export const allWeights = () => run("weights", "readonly", (store) => store.getAll());
 export const putWeight = (day, kg) => run("weights", "readwrite", (store) => store.put({ day, kg }));
+export const deleteWeight = (day) => run("weights", "readwrite", (store) => store.delete(day));
 
 // Asks iOS not to evict the diary under storage pressure. Granted more readily to home-screen apps.
 export async function requestPersistence() {

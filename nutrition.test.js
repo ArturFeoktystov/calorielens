@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bmr, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize, DEFAULT_PROFILE } from "./nutrition.js";
+import { bmr, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize, DEFAULT_PROFILE, weightTrend, daysBetween } from "./nutrition.js";
 
 const NOW = new Date(2026, 9, 6, 12, 0);
 const man = { ...DEFAULT_PROFILE, birthYear: 1990, weightKg: 85, heightCm: 180, activity: "moderate" };
@@ -91,4 +91,25 @@ test("drinks add to water; entries saved before fluidMl count as 0", () => {
     { status: "pending", items: [{ kcal: 5, fluidMl: 500 }] },
   ];
   assert.equal(totals(entries).fluidMl, 580);
+});
+
+test("weight trend: weekly weigh-ins, rate per week, range filter", () => {
+  const weights = [
+    { day: "2026-09-29", kg: 85.0 },
+    { day: "2026-09-08", kg: 86.6 },
+    { day: "2026-09-15", kg: 86.1 },
+    { day: "2026-09-22", kg: 85.4 },
+  ];
+  const t = weightTrend(weights);
+  assert.deepEqual(t.points.map((p) => p.day), ["2026-09-08", "2026-09-15", "2026-09-22", "2026-09-29"]);
+  assert.equal(t.change, -1.6);
+  assert.equal(t.perWeek, -0.55);
+  assert.equal(weightTrend(weights, "2026-09-20").points.length, 2);
+  assert.equal(daysBetween("2026-09-28", "2026-10-05"), 7);
+});
+
+test("weight trend needs two weigh-ins a week apart for a rate", () => {
+  assert.equal(weightTrend([]).last, null);
+  assert.equal(weightTrend([{ day: "2026-10-01", kg: 80 }]).perWeek, null);
+  assert.equal(weightTrend([{ day: "2026-10-01", kg: 80 }, { day: "2026-10-04", kg: 79.5 }]).perWeek, null);
 });

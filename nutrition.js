@@ -141,7 +141,34 @@ export function summarize(days, goal) {
   };
 }
 
-export const NUTRIENTS = ["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol", "fluidMl"];
+// --- weight -------------------------------------------------------------------------------------
+
+const MS_PER_DAY = 86_400_000;
+export const daysBetween = (fromDay, toDay) =>
+  Math.round((Date.UTC(...ymd(toDay)) - Date.UTC(...ymd(fromDay))) / MS_PER_DAY);
+const ymd = (day) => day.split("-").map((v, i) => (i === 1 ? v - 1 : Number(v)));
+
+// Weigh-ins ({day, kg}) from `fromDay` on, oldest first, with the rate of change in kg per week:
+// a least-squares line through them, so one unusual weigh-in doesn't swing the result.
+// The rate needs at least two weigh-ins a week or more apart; otherwise it is null.
+export function weightTrend(weights, fromDay = "0000-00-00") {
+  const points = weights.filter((w) => w.day >= fromDay).sort((a, b) => (a.day < b.day ? -1 : 1));
+  if (!points.length) return { points, first: null, last: null, change: 0, perWeek: null };
+  const first = points[0];
+  const last = points.at(-1);
+  let perWeek = null;
+  if (points.length >= 2 && daysBetween(first.day, last.day) >= 7) {
+    const xs = points.map((p) => daysBetween(first.day, p.day));
+    const meanX = xs.reduce((s, x) => s + x, 0) / xs.length;
+    const meanY = points.reduce((s, p) => s + p.kg, 0) / points.length;
+    const sxy = points.reduce((s, p, i) => s + (xs[i] - meanX) * (p.kg - meanY), 0);
+    const sxx = xs.reduce((s, x) => s + (x - meanX) ** 2, 0);
+    perWeek = Math.round((sxy / sxx) * 7 * 100) / 100;
+  }
+  return { points, first, last, change: Math.round((last.kg - first.kg) * 10) / 10, perWeek };
+}
+
+export const NUTRIENTS =["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol", "fluidMl"];
 
 // Sums confirmed entries; pending entries (not yet recognized) are not counted.
 export function totals(entries) {

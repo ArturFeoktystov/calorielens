@@ -156,7 +156,9 @@ main { display: flex; flex-direction: column; gap: 12px; }
 /* --- dialogs --- */
 dialog {
   width: min(100% - 24px, 480px);
-  max-height: calc(100% - 24px);
+  /* Clear of the iPhone status bar and home indicator: the app draws under them. */
+  max-height: calc(100% - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  transform: translateY(calc((env(safe-area-inset-top) - env(safe-area-inset-bottom)) / 2));
   background: #141416;
   color: var(--text);
   border: 1px solid var(--card-edge);
@@ -303,10 +305,6 @@ textarea { resize: none; }
 #weight-now { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .weight-card.due #weight-sub { color: var(--fat); }
 #weight-dialog[open] { display: flex; flex-direction: column; gap: 12px; }
-.weight-form { flex-direction: row; align-items: flex-end; gap: 8px; }
-.weight-form label { flex: 1; min-width: 0; }
-.weight-form label:first-child { flex: 0 0 84px; }
-.weight-form button { flex: none; padding: 10px 16px; }
 .weight-chart { aspect-ratio: 340 / 170; }
 .weight-chart .grid { stroke: #2a2a2e; stroke-width: 1; }
 .weight-chart .line { fill: none; stroke: var(--water); stroke-width: 2; stroke-linejoin: round; }
@@ -338,3 +336,11 @@ textarea { resize: none; }
 .advice.collapsed .advice-headline {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+
+/* weight form: weight and day side by side, Save below (an iOS date field won't shrink) */
+.weight-form { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; }
+.weight-form label { min-width: 0; }
+.weight-form input { min-width: 0; max-width: 100%; }
+.weight-form button { grid-column: 1 / -1; }
+.weight-range span { padding-inline: 4px; }
+.weight-chart .week-line { stroke: #222226; stroke-width: 1; }

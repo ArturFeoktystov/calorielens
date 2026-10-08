@@ -5,13 +5,13 @@
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
   weightTrend, daysBetween, weekStart, weeklySummary, DAY_START_HOUR,
-} from "./nutrition.js?v=14";
+} from "./nutrition.js?v=15";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   allWeights, putWeight, deleteWeight, requestPersistence,
-} from "./db.js?v=14";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=14";
-import { dailyAdvice } from "./advice.js?v=14";
+} from "./db.js?v=15";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=15";
+import { dailyAdvice } from "./advice.js?v=15";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -993,6 +993,12 @@ function drawWeightChart(selected) {
   for (const kg of [lo, (lo + hi) / 2, hi]) { // three gridlines with labels
     parts.push(`<line class="grid" x1="${left}" x2="${width - right}" y1="${y(kg)}" y2="${y(kg)}"/>`);
     parts.push(`<text x="${left - 4}" y="${y(kg) + 3}" text-anchor="end">${Number.isInteger(kg) ? kg : kg.toFixed(1)}</text>`);
+  }
+  // Up to three months: a faint line on every Monday, so the weeks are visible.
+  if (span <= 92) {
+    for (let monday = shiftDay(weekStart(startDay), 7); monday <= endDay; monday = shiftDay(monday, 7)) {
+      parts.push(`<line class="week-line" x1="${x(monday)}" x2="${x(monday)}" y1="${top}" y2="${height - bottom}"/>`);
+    }
   }
   for (const day of [startDay, endDay]) {
     const label = dateOf(day).toLocaleDateString("en-US", { month: "short", day: "numeric" });

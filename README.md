@@ -40,7 +40,7 @@ Data entered in Safari and in the home-screen app is stored separately — use t
 A new day starts at **04:00**, so a 00:30 snack belongs to the day before.
 
 **Weight**: weigh in once a week (same day, morning, before eating). The Weight card opens a chart
-(3 months / 6 months / all) with the planned pace as a dashed line, the change, the rate per week
+(1 month / 3 months / 6 months / all, with a faint line on each Monday up to 3 months) with the planned pace as a dashed line, the change, the rate per week
 (a least-squares line through the weigh-ins, so one odd reading doesn't swing it) and a verdict:
 on track between the chosen pace − 0.25 % and 1 % a week, "too fast" above 1 % (muscle at risk).
 The latest weigh-in is the profile weight, so the targets follow it. **Weeks** shows one row per

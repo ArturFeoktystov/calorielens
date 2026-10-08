@@ -175,8 +175,9 @@ export function weekStart(day) {
   return shiftDay(day, -((weekday + 6) % 7));
 }
 
-// One row per calendar week, oldest first: the average weigh-in of that week (if any), the change
-// from the previous week that had one, and calories/protein averaged over the week's logged days.
+// One row per calendar week (Monday to Sunday), oldest first: the average of however many weigh-ins
+// that week has, the change from the previous week that had one, and calories/protein averaged over
+// the week's logged days. `mid` is the Thursday, where the chart draws the week's average.
 // `days` comes from dailyStats; weeks with neither weigh-ins nor logged days are left out.
 export function weeklySummary(weights, days) {
   const weeks = new Map();
@@ -194,7 +195,10 @@ export function weeklySummary(weights, days) {
     const change = kg !== null && previousKg !== null ? Math.round((kg - previousKg) * 10) / 10 : null;
     if (kg !== null) previousKg = kg;
     const avg = (key) => (logged.length ? Math.round(logged.reduce((s, d) => s + d[key], 0) / logged.length) : null);
-    return { week: start, kg, weighIns: kgs.length, change, loggedDays: logged.length, avgKcal: avg("kcal"), avgProtein: avg("protein") };
+    return {
+      week: start, end: shiftDay(start, 6), mid: shiftDay(start, 3), kg, weighIns: kgs.length, change,
+      loggedDays: logged.length, avgKcal: avg("kcal"), avgProtein: avg("protein"),
+    };
   });
 }
 

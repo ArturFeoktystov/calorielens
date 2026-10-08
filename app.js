@@ -5,13 +5,13 @@
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
   weightTrend, daysBetween, weekStart, weeklySummary, DAY_START_HOUR,
-} from "./nutrition.js?v=15";
+} from "./nutrition.js?v=16";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   allWeights, putWeight, deleteWeight, requestPersistence,
-} from "./db.js?v=15";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=15";
-import { dailyAdvice } from "./advice.js?v=15";
+} from "./db.js?v=16";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=16";
+import { dailyAdvice } from "./advice.js?v=16";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -911,7 +911,8 @@ async function renderWeight() {
       + paceTile
       + tile("Verdict", ...paceVerdict(p, t, goal));
   }
-  // "Weeks": one point and one row per Monday–Sunday week, with that week's eating next to it.
+  // "Weeks": one point and one row per Monday–Sunday week. The week's weight is the average of
+  // however many weigh-ins it has, drawn mid-week; that week's eating is shown next to it.
   const byWeek = weightDialog.querySelector("input[name=weight-view]:checked").value === "weeks";
   let weeks = [];
   if (byWeek) {
@@ -919,8 +920,13 @@ async function renderWeight() {
     const days = dailyStats(await entriesBetween(startDay, today), today, count);
     weeks = weeklySummary(t.points, days.filter((d) => d.day !== today)); // today isn't finished yet
   }
-  const points = byWeek ? weeks.filter((w) => w.kg !== null).map((w) => ({ day: w.week, kg: w.kg })) : t.points;
-  weightView = { trend: t, points, startDay: byWeek ? weekStart(startDay) : startDay, endDay: today, byWeek };
+  const points = byWeek
+    ? weeks.filter((w) => w.kg !== null).map((w) => ({
+      day: w.mid < startDay ? startDay : w.mid > today ? today : w.mid, // keep the point inside the chart
+      kg: w.kg, start: w.week, weighIns: w.weighIns,
+    }))
+    : t.points;
+  weightView = { trend: t, points, startDay, endDay: today, byWeek };
   drawWeightChart();
 
   if (byWeek) {
@@ -929,9 +935,10 @@ async function renderWeight() {
       const eating = w.loggedDays
         ? `${fmt(w.avgKcal)} kcal · P ${fmt(w.avgProtein)} g · ${w.loggedDays} day${w.loggedDays > 1 ? "s" : ""} logged`
         : "no meals logged";
+      const weighIns = w.weighIns > 1 ? ` · avg of ${w.weighIns} weigh-ins` : "";
       return `<li class="week-row${w.kg === null ? " empty" : ""}">
         <div class="when">${w.week === thisWeek ? "This week" : weekLabel(w.week)}
-          <div class="muted small">${eating}</div></div>
+          <div class="muted small">${eating}${weighIns}</div></div>
         <span class="p">${w.change !== null ? signedKg(w.change) : ""}</span>
         <span class="k">${w.kg !== null ? kgText(w.kg) : "—"}</span>
       </li>`;
@@ -951,10 +958,10 @@ async function renderWeight() {
   }).join("");
 }
 
-// "Sep 29 – Oct 5"
-function weekLabel(monday) {
+// "Sep 28 – Oct 4"
+function weekLabel(start) {
   const short = (day) => dateOf(day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${short(monday)} – ${short(shiftDay(monday, 6))}`;
+  return `${short(start)} – ${short(shiftDay(start, 6))}`;
 }
 
 // For a cut: on track between the chosen pace (minus a little slack) and 1 % a week.
@@ -994,12 +1001,6 @@ function drawWeightChart(selected) {
     parts.push(`<line class="grid" x1="${left}" x2="${width - right}" y1="${y(kg)}" y2="${y(kg)}"/>`);
     parts.push(`<text x="${left - 4}" y="${y(kg) + 3}" text-anchor="end">${Number.isInteger(kg) ? kg : kg.toFixed(1)}</text>`);
   }
-  // Up to three months: a faint line on every Monday, so the weeks are visible.
-  if (span <= 92) {
-    for (let monday = shiftDay(weekStart(startDay), 7); monday <= endDay; monday = shiftDay(monday, 7)) {
-      parts.push(`<line class="week-line" x1="${x(monday)}" x2="${x(monday)}" y1="${top}" y2="${height - bottom}"/>`);
-    }
-  }
   for (const day of [startDay, endDay]) {
     const label = dateOf(day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     parts.push(`<text x="${x(day)}" y="${height - 4}" text-anchor="${day === startDay ? "start" : "end"}">${label}</text>`);
@@ -1019,7 +1020,7 @@ function drawWeightChart(selected) {
   const w = pts[sel];
   const vsPlan = plan ? ` · plan ${plan(w.day).toFixed(1)}` : "";
   $("weight-readout").textContent = byWeek
-    ? `${weekLabel(w.day)} · ${kgText(w.kg)} average${vsPlan}`
+    ? `${weekLabel(w.start)} · ${kgText(w.kg)}${w.weighIns > 1 ? ` (avg of ${w.weighIns})` : ""}${vsPlan}`
     : `${shortDate(w.day)} · ${kgText(w.kg)}${vsPlan}`;
 }
 

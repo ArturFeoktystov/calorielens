@@ -136,6 +136,9 @@ test("weeklySummary: weekly weight, change, and the week's eating", () => {
   const rows = weeklySummary(weights, days);
   assert.deepEqual(rows.map((r) => r.week), ["2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12"]);
   assert.deepEqual(rows.map((r) => r.kg), [86, 85.2, null, 84.6]);
+  assert.deepEqual(rows.map((r) => r.weighIns), [1, 2, 0, 1]);
+  assert.equal(rows[1].mid, "2026-10-01"); // Thursday of Sep 28 - Oct 4
+  assert.equal(rows[1].end, "2026-10-04");
   assert.deepEqual(rows.map((r) => r.change), [null, -0.8, null, -0.6]); // compared with the last weighed week
   assert.equal(rows[1].avgKcal, 2100);
   assert.equal(rows[1].loggedDays, 2);

@@ -168,6 +168,36 @@ export function weightTrend(weights, fromDay = "0000-00-00") {
   return { points, first, last, change: Math.round((last.kg - first.kg) * 10) / 10, perWeek };
 }
 
+// Monday of the week a "YYYY-MM-DD" day belongs to (weeks run Monday to Sunday).
+export function weekStart(day) {
+  const [y, m, d] = day.split("-").map(Number);
+  const weekday = new Date(y, m - 1, d, 12).getDay(); // 0 = Sunday
+  return shiftDay(day, -((weekday + 6) % 7));
+}
+
+// One row per calendar week, oldest first: the average weigh-in of that week (if any), the change
+// from the previous week that had one, and calories/protein averaged over the week's logged days.
+// `days` comes from dailyStats; weeks with neither weigh-ins nor logged days are left out.
+export function weeklySummary(weights, days) {
+  const weeks = new Map();
+  const week = (day) => {
+    const start = weekStart(day);
+    if (!weeks.has(start)) weeks.set(start, { week: start, kgs: [], logged: [] });
+    return weeks.get(start);
+  };
+  for (const w of weights) week(w.day).kgs.push(w.kg);
+  for (const d of days) if (d.logged) week(d.day).logged.push(d);
+
+  let previousKg = null;
+  return [...weeks.values()].sort((a, b) => (a.week < b.week ? -1 : 1)).map(({ week: start, kgs, logged }) => {
+    const kg = kgs.length ? Math.round((kgs.reduce((s, k) => s + k, 0) / kgs.length) * 10) / 10 : null;
+    const change = kg !== null && previousKg !== null ? Math.round((kg - previousKg) * 10) / 10 : null;
+    if (kg !== null) previousKg = kg;
+    const avg = (key) => (logged.length ? Math.round(logged.reduce((s, d) => s + d[key], 0) / logged.length) : null);
+    return { week: start, kg, weighIns: kgs.length, change, loggedDays: logged.length, avgKcal: avg("kcal"), avgProtein: avg("protein") };
+  });
+}
+
 export const NUTRIENTS =["kcal", "protein", "fat", "carbs", "fiber", "sugar", "alcohol", "fluidMl"];
 
 // Sums confirmed entries; pending entries (not yet recognized) are not counted.

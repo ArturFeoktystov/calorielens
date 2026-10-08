@@ -43,7 +43,9 @@ A new day starts at **04:00**, so a 00:30 snack belongs to the day before.
 (3 months / 6 months / all) with the planned pace as a dashed line, the change, the rate per week
 (a least-squares line through the weigh-ins, so one odd reading doesn't swing it) and a verdict:
 on track between the chosen pace − 0.25 % and 1 % a week, "too fast" above 1 % (muscle at risk).
-The latest weigh-in is the profile weight, so the targets follow it.
+The latest weigh-in is the profile weight, so the targets follow it. **Weeks** shows one row per
+Monday–Sunday week: the average weigh-in, the change from the previous week, and that week's
+average calories and protein (finished days only), so eating and weight sit side by side.
 
 **Weekly report** every Monday. A target change (±100–150 kcal) is proposed at most every 2 weeks,
 only with weigh-ins at least 2 weeks apart, always with your confirmation, and never below BMR.
@@ -63,8 +65,10 @@ only with weigh-ins at least 2 weeks apart, always with your confirmation, and n
 - **Offline**: entries are saved as *pending* and recognized when the network is back.
 - **Diary**: a time-ordered feed, no meal categories, a thumbnail for each entry; past days can be
   edited.
-- **Advice**: a rule-based hint on the home screen for what is left (suggestions from your own
-  history first, then the food table); **Finish day** asks Claude for a short review; weekly
+- **Advice**: every morning, on the first open of the day, Claude writes **Today's plan** from
+  yesterday's meals, the last 7 days (calories, protein, fiber, water), the weight trend and the
+  foods you usually eat; **Review today** asks for a review of the day so far. One small request
+  each (effort low, ~$0.01), cached for the day. Later: a rule-based hint for what is left, weekly
   report on Mondays.
 - **Reminders**: the app icon badge shows calories left (0 when over); an iOS Shortcuts automation
   sends "Check CalorieLens" at 13:00, 17:00 and 20:30. A push server with real numbers is a later
@@ -80,7 +84,7 @@ only with weigh-ins at least 2 weeks apart, always with your confirmation, and n
    averages, days within target and the balance against maintenance.
 3. ✅ Repeat (log a saved meal again, no new photo). Next: My foods, USDA table, barcode and label.
 4. ✅ Weight log and chart. Next: weekly report, target adjustment, badge.
-5. Hints, Finish day, export/import, Shortcuts instructions.
+5. ✅ Daily plan and review from Claude. Next: rule-based hints, export/import, Shortcuts instructions.
 
 Later: push server with numbers, auto-save when the model is confident, Haiku quality check on
 real photos, training/rest-day targets, free-form advice chat.
@@ -97,6 +101,7 @@ node --test                # unit tests for the target math
 | `index.html`, `style.css` | The screens |
 | `app.js` | UI: home screen, adding food, confirmation, profile, settings |
 | `recognize.js` | Claude prompt, JSON schema and API call for food recognition |
+| `advice.js` | Claude prompt and API call for the daily plan and review |
 | `nutrition.js` | Target math and day boundaries (pure functions, tested) |
 | `db.js` | IndexedDB storage |
 | `manifest.webmanifest`, `icons/` | Home-screen name and icon |

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bmr, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize, DEFAULT_PROFILE, weightTrend, daysBetween } from "./nutrition.js";
+import { bmr, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize, DEFAULT_PROFILE, weightTrend, daysBetween, weekStart, weeklySummary } from "./nutrition.js";
 
 const NOW = new Date(2026, 9, 6, 12, 0);
 const man = { ...DEFAULT_PROFILE, birthYear: 1990, weightKg: 85, heightCm: 180, activity: "moderate" };
@@ -112,4 +112,33 @@ test("weight trend needs two weigh-ins a week apart for a rate", () => {
   assert.equal(weightTrend([]).last, null);
   assert.equal(weightTrend([{ day: "2026-10-01", kg: 80 }]).perWeek, null);
   assert.equal(weightTrend([{ day: "2026-10-01", kg: 80 }, { day: "2026-10-04", kg: 79.5 }]).perWeek, null);
+});
+
+test("weekStart is the Monday of that week", () => {
+  assert.equal(weekStart("2026-10-07"), "2026-10-05"); // Wednesday
+  assert.equal(weekStart("2026-10-05"), "2026-10-05"); // Monday
+  assert.equal(weekStart("2026-10-11"), "2026-10-05"); // Sunday
+  assert.equal(weekStart("2026-10-01"), "2026-09-28"); // across a month
+});
+
+test("weeklySummary: weekly weight, change, and the week's eating", () => {
+  const weights = [
+    { day: "2026-09-21", kg: 86.0 },
+    { day: "2026-09-30", kg: 85.4 }, { day: "2026-10-03", kg: 85.0 }, // two weigh-ins: averaged
+    { day: "2026-10-12", kg: 84.6 }, // skips a week
+  ];
+  const days = [
+    { day: "2026-09-29", logged: true, kcal: 2000, protein: 170 },
+    { day: "2026-09-30", logged: true, kcal: 2200, protein: 150 },
+    { day: "2026-10-01", logged: false, kcal: 0, protein: 0 },
+    { day: "2026-10-06", logged: true, kcal: 1900, protein: 180 },
+  ];
+  const rows = weeklySummary(weights, days);
+  assert.deepEqual(rows.map((r) => r.week), ["2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12"]);
+  assert.deepEqual(rows.map((r) => r.kg), [86, 85.2, null, 84.6]);
+  assert.deepEqual(rows.map((r) => r.change), [null, -0.8, null, -0.6]); // compared with the last weighed week
+  assert.equal(rows[1].avgKcal, 2100);
+  assert.equal(rows[1].loggedDays, 2);
+  assert.equal(rows[2].avgProtein, 180);
+  assert.equal(rows[0].avgKcal, null);
 });

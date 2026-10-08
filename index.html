@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <header>
@@ -40,6 +40,16 @@
         <div id="kcal-left-label" class="muted"></div>
         <div id="kcal-eaten" class="muted small"></div>
       </div>
+    </section>
+
+    <section id="advice-card" class="card advice hidden">
+      <div class="row">
+        <span id="advice-title">Today's plan</span>
+        <button type="button" id="advice-review" class="link">Review today</button>
+      </div>
+      <div id="advice-headline" class="advice-headline"></div>
+      <ul id="advice-tips" class="advice-tips"></ul>
+      <div id="advice-status" class="status-line"></div>
     </section>
 
     <section class="card">
@@ -162,6 +172,10 @@
       <label><input type="radio" name="weight-range" value="all"><span>All</span></label>
     </div>
     <div id="weight-summary" class="stats-summary"></div>
+    <div class="segmented weight-view" role="radiogroup" aria-label="Show">
+      <label><input type="radio" name="weight-view" value="weigh-ins" checked><span>Weigh-ins</span></label>
+      <label><input type="radio" name="weight-view" value="weeks"><span>Weeks</span></label>
+    </div>
     <div id="weight-readout" class="stats-readout small"></div>
     <svg id="weight-chart" class="stats-chart weight-chart" role="img" aria-label="Weight over time"></svg>
     <ol id="weight-list" class="stats-days weight-list"></ol>
@@ -253,6 +267,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=12"></script>
+  <script type="module" src="app.js?v=13"></script>
 </body>
 </html>

@@ -315,3 +315,15 @@ textarea { resize: none; }
 .weight-chart .plan { stroke: var(--green); stroke-width: 1.5; stroke-dasharray: 4 4; }
 .weight-list li { align-items: center; }
 .weight-list .item-remove { padding: 0 4px; }
+
+/* --- daily advice --- */
+.advice .row { margin-bottom: 4px; }
+.advice-headline { font-weight: 600; }
+.advice-headline:empty { display: none; }
+.advice-tips { margin: 6px 0 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+.advice-tips:empty { display: none; }
+.advice .status-line { margin-top: 4px; }
+#advice-review { color: var(--green); font-size: 14px; }
+.week-row { align-items: center !important; }
+.week-row .when .small { margin-top: 2px; }
+.weight-view { margin-top: -4px; }

@@ -4,13 +4,14 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-  weightTrend, daysBetween,
-} from "./nutrition.js?v=12";
+  weightTrend, daysBetween, weekStart, weeklySummary,
+} from "./nutrition.js?v=13";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   allWeights, putWeight, deleteWeight, requestPersistence,
-} from "./db.js?v=12";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=12";
+} from "./db.js?v=13";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=13";
+import { dailyAdvice } from "./advice.js?v=13";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -98,6 +99,7 @@ async function render() {
   $("drinks-fill").style.width = `${Math.min(drinksMl / goal.waterMl, 1 - waterShare) * 100}%`;
   $("water-note").textContent = drinksMl > 0 ? `incl. ${liters(drinksMl)} L from drinks` : "";
   renderWeightCard();
+  renderAdvice(day, entries);
 
   $("feed").innerHTML = entries.map((entry) => {
     const time = new Date(entry.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -639,6 +641,150 @@ $("stats-days").addEventListener("click", (event) => {
   showDay(li.dataset.day);
 });
 
+// --- daily advice: a plan each morning (from yesterday), a review of today on request -------------
+// The morning plan is requested automatically on the first open of the day, once; the evening
+// review only when the user taps it. Both are kept per day, so reopening the app costs nothing.
+
+const ADVICE_KEEP_DAYS = 7;
+let adviceBusy = false;
+let adviceError = ""; // shown until the next request
+let adviceFailedKind = "morning";
+let adviceButtonKind = "evening";
+const adviceRequested = new Set(); // one automatic try per day per launch, even if it fails
+
+const adviceStore = () => load("advice", {});
+function saveAdvice(day, kind, advice) {
+  const all = adviceStore();
+  all[day] = { ...all[day], [kind]: { ...advice, at: Date.now() } };
+  const oldest = shiftDay(dayKey(), -ADVICE_KEEP_DAYS);
+  for (const d of Object.keys(all)) if (d < oldest) delete all[d];
+  save("advice", all);
+}
+
+function renderAdvice(day, entries) {
+  const card = $("advice-card");
+  const today = dayKey();
+  if (day !== today || !settings().anthropicKey) {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+  const stored = adviceStore()[today] ?? {};
+  const shown = stored.evening ?? stored.morning;
+  const hasMeals = entries.some((e) => e.status === "confirmed");
+
+  $("advice-title").textContent = stored.evening ? "Today's review" : "Today's plan";
+  $("advice-headline").textContent = shown?.headline ?? "";
+  $("advice-tips").innerHTML = (shown?.tips ?? []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+  // The button reviews today, or retries whatever just failed.
+  adviceButtonKind = adviceError ? adviceFailedKind : "evening";
+  $("advice-review").textContent = adviceError ? "Try again" : stored.evening ? "Update review" : "Review today";
+  $("advice-review").classList.toggle("hidden", adviceBusy || !(hasMeals || adviceError));
+
+  if (adviceBusy) return;
+  if (adviceError) {
+    setAdviceStatus(adviceError, "error");
+  } else if (!shown) {
+    setAdviceStatus(hasMeals
+      ? "Tap Review today for advice on today so far."
+      : "Your plan appears here each morning, based on the day before. Log your meals to get it.");
+  } else {
+    setAdviceStatus("");
+  }
+  // First open of the day: ask for the morning plan if yesterday has meals to learn from.
+  if (!stored.morning && !adviceRequested.has(today) && navigator.onLine) {
+    adviceRequested.add(today);
+    entriesForDay(shiftDay(today, -1)).then((list) => {
+      if (list.some((e) => e.status === "confirmed")) requestAdvice("morning");
+    });
+  }
+}
+
+function setAdviceStatus(text, kind = "") {
+  $("advice-status").textContent = text;
+  $("advice-status").className = `status-line ${kind}`;
+}
+
+async function requestAdvice(kind) {
+  if (adviceBusy) return;
+  const today = dayKey();
+  adviceBusy = true;
+  adviceError = "";
+  $("advice-review").classList.add("hidden");
+  setAdviceStatus(kind === "morning" ? "Preparing today's plan…" : "Reviewing today…", "busy");
+  try {
+    const s = settings();
+    const advice = await dailyAdvice({ apiKey: s.anthropicKey, model: s.model, kind, context: await adviceContext(kind) });
+    saveAdvice(today, kind, advice);
+  } catch (error) {
+    adviceError = describeError(error).message;
+    adviceFailedKind = kind;
+  }
+  adviceBusy = false;
+  render();
+}
+$("advice-review").addEventListener("click", () => requestAdvice(adviceButtonKind));
+
+// What Claude sees: profile, targets, the last 7 days, the focus day's foods, weight trend and the
+// foods the user eats most (so suggestions are things they actually have).
+async function adviceContext(kind) {
+  const p = profile();
+  const goal = targets(p);
+  const today = dayKey();
+  const focusDay = kind === "morning" ? shiftDay(today, -1) : today;
+  const monthEntries = await entriesBetween(shiftDay(today, -29), today);
+  const days = dailyStats(monthEntries, focusDay, 7);
+  const water = await Promise.all(days.map((d) => waterForDay(d.day)));
+  const round = (n) => Math.round(n);
+  const recentDays = days.map((d, i) => ({
+    day: d.day,
+    weekday: dateOf(d.day).toLocaleDateString("en-US", { weekday: "short" }),
+    logged: d.logged,
+    ...(d.logged ? {
+      kcal: round(d.kcal), protein: round(d.protein), fat: round(d.fat), carbs: round(d.carbs),
+      fiber: round(d.fiber), alcoholG: round(d.alcohol),
+    } : {}),
+    waterMl: round(water[i] + d.fluidMl),
+  }));
+  const focusFoods = monthEntries
+    .filter((e) => e.day === focusDay && e.status === "confirmed")
+    .sort((a, b) => a.time - b.time)
+    .map((e) => ({
+      time: new Date(e.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      items: e.items.map((i) => `${i.name} ${round(i.grams)} g (${round(i.kcal)} kcal, P ${round(i.protein)})`),
+    }));
+  const counts = new Map();
+  for (const e of monthEntries) {
+    if (e.status !== "confirmed") continue;
+    for (const i of e.items) counts.set(i.name, (counts.get(i.name) ?? 0) + 1);
+  }
+  const usualFoods = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([name]) => name);
+
+  const weights = await allWeights();
+  const t = weightTrend(weights);
+  const recent = weightTrend(weights, shiftDay(today, -30));
+  return {
+    today,
+    timeNow: kind === "evening" ? new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : undefined,
+    profile: {
+      sex: p.sex, age: new Date().getFullYear() - p.birthYear, heightCm: p.heightCm, weightKg: p.weightKg,
+      bodyFatPct: p.bodyFatPct, goal: p.goal, plannedLossPctPerWeek: p.goal === "cut" ? p.pacePct : 0,
+      strengthSessionsPerWeek: p.strengthPerWeek,
+    },
+    dailyTargets: { kcal: goal.kcal, protein: goal.protein, fat: goal.fat, carbs: goal.carbs, fiber: goal.fiber, waterMl: goal.waterMl },
+    focusDay,
+    focusDayFoods: focusFoods,
+    recentDays,
+    weight: t.last ? {
+      latestKg: t.last.kg,
+      daysSinceWeighIn: daysBetween(t.last.day, today),
+      kgPerWeekLast30Days: recent.perWeek,
+      plannedKgPerWeek: p.goal === "cut" ? -Math.round((p.pacePct / 100) * t.last.kg * 100) / 100 : 0,
+    } : null,
+    usualFoods,
+  };
+}
+
 // --- weight: weekly weigh-ins, chart, rate per week vs the plan -----------------------------------
 // The latest weigh-in is also the profile weight, so the daily targets follow it.
 
@@ -646,7 +792,7 @@ const WEIGH_EVERY_DAYS = 7;
 const WEIGHT_CHART = { width: 340, height: 170, top: 12, bottom: 18, left: 30, right: 8 };
 const weightDialog = $("weight-dialog");
 const weightForm = $("weight-form");
-let weightView = null; // { trend, startDay, endDay } for the chart taps
+let weightView = null; // { trend, points, startDay, endDay, byWeek } for the chart taps
 
 const kgText = (kg) => `${kg.toFixed(1)} kg`;
 const signedKg = (kg, digits = 1) => `${kg > 0 ? "+" : kg < 0 ? "−" : "±"}${Math.abs(kg).toFixed(digits)}`;
@@ -686,7 +832,9 @@ function openWeight() {
 $("weight-card").addEventListener("click", openWeight);
 $("weight-card").addEventListener("keydown", (event) => { if (event.key === "Enter") openWeight(); });
 $("weight-close").addEventListener("click", () => weightDialog.close());
-weightDialog.querySelector(".weight-range").addEventListener("change", () => renderWeight());
+for (const group of weightDialog.querySelectorAll(".weight-range, .weight-view")) {
+  group.addEventListener("change", () => renderWeight());
+}
 
 weightForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -737,9 +885,33 @@ async function renderWeight() {
       + paceTile
       + tile("Verdict", ...paceVerdict(p, t, goal));
   }
-  weightView = { trend: t, startDay, endDay: today };
+  // "Weeks": one point and one row per Monday–Sunday week, with that week's eating next to it.
+  const byWeek = weightDialog.querySelector("input[name=weight-view]:checked").value === "weeks";
+  let weeks = [];
+  if (byWeek) {
+    const count = daysBetween(startDay, today) + 1;
+    const days = dailyStats(await entriesBetween(startDay, today), today, count);
+    weeks = weeklySummary(t.points, days.filter((d) => d.day !== today)); // today isn't finished yet
+  }
+  const points = byWeek ? weeks.filter((w) => w.kg !== null).map((w) => ({ day: w.week, kg: w.kg })) : t.points;
+  weightView = { trend: t, points, startDay: byWeek ? weekStart(startDay) : startDay, endDay: today, byWeek };
   drawWeightChart();
 
+  if (byWeek) {
+    const thisWeek = weekStart(today);
+    $("weight-list").innerHTML = weeks.slice().reverse().map((w) => {
+      const eating = w.loggedDays
+        ? `${fmt(w.avgKcal)} kcal · P ${fmt(w.avgProtein)} g · ${w.loggedDays} day${w.loggedDays > 1 ? "s" : ""} logged`
+        : "no meals logged";
+      return `<li class="week-row${w.kg === null ? " empty" : ""}">
+        <div class="when">${w.week === thisWeek ? "This week" : weekLabel(w.week)}
+          <div class="muted small">${eating}</div></div>
+        <span class="p">${w.change !== null ? signedKg(w.change) : ""}</span>
+        <span class="k">${w.kg !== null ? kgText(w.kg) : "—"}</span>
+      </li>`;
+    }).join("") || `<li class="empty"><span class="when">Nothing in this period yet</span></li>`;
+    return;
+  }
   const newestFirst = weightTrend(all).points.slice().reverse();
   $("weight-list").innerHTML = newestFirst.map((w, i) => {
     const prev = newestFirst[i + 1];
@@ -751,6 +923,12 @@ async function renderWeight() {
       <button type="button" class="item-remove" data-delete="${w.day}" aria-label="Delete">✕</button>
     </li>`;
   }).join("");
+}
+
+// "Sep 29 – Oct 5"
+function weekLabel(monday) {
+  const short = (day) => dateOf(day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${short(monday)} – ${short(shiftDay(monday, 6))}`;
 }
 
 // For a cut: on track between the chosen pace (minus a little slack) and 1 % a week.
@@ -765,11 +943,11 @@ function paceVerdict(p, t, goal) {
 
 // A line through the weigh-ins over time, with the planned pace as a dashed line for a cut.
 function drawWeightChart(selected) {
-  const { trend: t, startDay, endDay } = weightView;
+  const { trend: t, points: pts, startDay, endDay, byWeek } = weightView;
   const { width, height, top, bottom, left, right } = WEIGHT_CHART;
   const chart = $("weight-chart");
   chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  if (!t.points.length) {
+  if (!pts.length) {
     chart.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle">Log a weigh-in to start the chart</text>`;
     $("weight-readout").textContent = "";
     return;
@@ -778,7 +956,7 @@ function drawWeightChart(selected) {
   const span = Math.max(daysBetween(startDay, endDay), 7);
   const x = (day) => left + (width - left - right) * (daysBetween(startDay, day) / span);
   const plan = p.goal === "cut" ? (day) => t.first.kg * (1 - (p.pacePct / 100) * (daysBetween(t.first.day, day) / 7)) : null;
-  const values = t.points.map((w) => w.kg);
+  const values = pts.map((w) => w.kg);
   if (plan) values.push(plan(endDay));
   let lo = Math.floor(Math.min(...values) - 0.5);
   let hi = Math.ceil(Math.max(...values) + 0.5);
@@ -798,17 +976,19 @@ function drawWeightChart(selected) {
     parts.push(`<line class="plan" x1="${x(t.first.day)}" y1="${y(t.first.kg)}" x2="${x(endDay)}" y2="${y(plan(endDay))}"/>`);
     parts.push(`<text class="halo" x="${x(endDay) - 2}" y="${y(plan(endDay)) - 5}" text-anchor="end">plan</text>`);
   }
-  parts.push(`<path class="line" d="${t.points.map((w, i) => `${i ? "L" : "M"}${x(w.day)},${y(w.kg)}`).join(" ")}"/>`);
-  const sel = selected ?? t.points.length - 1;
-  t.points.forEach((w, i) => {
+  parts.push(`<path class="line" d="${pts.map((w, i) => `${i ? "L" : "M"}${x(w.day)},${y(w.kg)}`).join(" ")}"/>`);
+  const sel = selected ?? pts.length - 1;
+  pts.forEach((w, i) => {
     parts.push(`<circle class="dot${i === sel ? " selected" : ""}" cx="${x(w.day)}" cy="${y(w.kg)}" r="${i === sel ? 4.5 : 3.5}"/>`);
     parts.push(`<circle class="hit" data-i="${i}" cx="${x(w.day)}" cy="${y(w.kg)}" r="14"/>`);
   });
   chart.innerHTML = parts.join("");
 
-  const w = t.points[sel];
+  const w = pts[sel];
   const vsPlan = plan ? ` · plan ${plan(w.day).toFixed(1)}` : "";
-  $("weight-readout").textContent = `${shortDate(w.day)} · ${kgText(w.kg)}${vsPlan}`;
+  $("weight-readout").textContent = byWeek
+    ? `${weekLabel(w.day)} · ${kgText(w.kg)} average${vsPlan}`
+    : `${shortDate(w.day)} · ${kgText(w.kg)}${vsPlan}`;
 }
 
 $("weight-chart").addEventListener("click", (event) => {

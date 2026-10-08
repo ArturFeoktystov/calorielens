@@ -67,7 +67,8 @@ only with weigh-ins at least 2 weeks apart, always with your confirmation, and n
   edited.
 - **Advice**: every morning, on the first open of the day, Claude writes **Today's plan** from
   yesterday's meals, the last 7 days (calories, protein, fiber, water), the weight trend and the
-  foods you usually eat; **Review today** asks for a review of the day so far. One small request
+  foods you usually eat; it shows collapsed (headline only, tap to expand). **Review today** appears
+  from 18:00 and asks for a review of the day so far. One small request
   each (effort low, ~$0.01), cached for the day. Later: a rule-based hint for what is left, weekly
   report on Mondays.
 - **Reminders**: the app icon badge shows calories left (0 when over); an iOS Shortcuts automation

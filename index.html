@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <header>
@@ -44,7 +44,9 @@
 
     <section id="advice-card" class="card advice hidden">
       <div class="row">
-        <span id="advice-title">Today's plan</span>
+        <button type="button" id="advice-toggle" class="advice-toggle" aria-expanded="false" aria-controls="advice-tips">
+          <span id="advice-title">Today's plan</span><span class="chev" aria-hidden="true">▾</span>
+        </button>
         <button type="button" id="advice-review" class="link">Review today</button>
       </div>
       <div id="advice-headline" class="advice-headline"></div>
@@ -267,6 +269,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=13"></script>
+  <script type="module" src="app.js?v=14"></script>
 </body>
 </html>

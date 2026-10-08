@@ -4,14 +4,14 @@
 
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
-  weightTrend, daysBetween, weekStart, weeklySummary,
-} from "./nutrition.js?v=13";
+  weightTrend, daysBetween, weekStart, weeklySummary, DAY_START_HOUR,
+} from "./nutrition.js?v=14";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   allWeights, putWeight, deleteWeight, requestPersistence,
-} from "./db.js?v=13";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=13";
-import { dailyAdvice } from "./advice.js?v=13";
+} from "./db.js?v=14";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=14";
+import { dailyAdvice } from "./advice.js?v=14";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
@@ -676,17 +676,23 @@ function renderAdvice(day, entries) {
   $("advice-title").textContent = stored.evening ? "Today's review" : "Today's plan";
   $("advice-headline").textContent = shown?.headline ?? "";
   $("advice-tips").innerHTML = (shown?.tips ?? []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
-  // The button reviews today, or retries whatever just failed.
+  // Collapsed by default: only the headline, so the card never takes over the screen.
+  const open = Boolean(shown?.tips?.length) && adviceOpen(today);
+  card.classList.toggle("collapsed", !open);
+  $("advice-toggle").setAttribute("aria-expanded", String(open));
+  $("advice-toggle").classList.toggle("no-tips", !shown?.tips?.length);
+
+  // The button reviews today in the evening, or retries whatever just failed.
   adviceButtonKind = adviceError ? adviceFailedKind : "evening";
   $("advice-review").textContent = adviceError ? "Try again" : stored.evening ? "Update review" : "Review today";
-  $("advice-review").classList.toggle("hidden", adviceBusy || !(hasMeals || adviceError));
+  $("advice-review").classList.toggle("hidden", adviceBusy || !(adviceError || (hasMeals && isEvening())));
 
   if (adviceBusy) return;
   if (adviceError) {
     setAdviceStatus(adviceError, "error");
   } else if (!shown) {
     setAdviceStatus(hasMeals
-      ? "Tap Review today for advice on today so far."
+      ? (isEvening() ? "Tap Review today for a review of your day." : `A review of today opens here at ${REVIEW_FROM_HOUR}:00.`)
       : "Your plan appears here each morning, based on the day before. Log your meals to get it.");
   } else {
     setAdviceStatus("");
@@ -699,6 +705,25 @@ function renderAdvice(day, entries) {
     });
   }
 }
+
+// The review is for the end of the day: from 18:00 until the diary day ends at 04:00.
+const REVIEW_FROM_HOUR = 18;
+function isEvening(now = new Date()) {
+  return now.getHours() >= REVIEW_FROM_HOUR || now.getHours() < DAY_START_HOUR;
+}
+
+// Expanded or collapsed, remembered for today only.
+const adviceOpen = (day) => load("adviceOpen", {})[day] === true;
+const setAdviceOpen = (day, open) => save("adviceOpen", { [day]: open });
+function toggleAdvice() {
+  if (!$("advice-tips").children.length) return;
+  const open = $("advice-card").classList.contains("collapsed");
+  setAdviceOpen(dayKey(), open);
+  $("advice-card").classList.toggle("collapsed", !open);
+  $("advice-toggle").setAttribute("aria-expanded", String(open));
+}
+$("advice-toggle").addEventListener("click", toggleAdvice);
+$("advice-headline").addEventListener("click", toggleAdvice);
 
 function setAdviceStatus(text, kind = "") {
   $("advice-status").textContent = text;
@@ -716,6 +741,7 @@ async function requestAdvice(kind) {
     const s = settings();
     const advice = await dailyAdvice({ apiKey: s.anthropicKey, model: s.model, kind, context: await adviceContext(kind) });
     saveAdvice(today, kind, advice);
+    if (kind === "evening") setAdviceOpen(today, true); // asked for it, so show it in full
   } catch (error) {
     adviceError = describeError(error).message;
     adviceFailedKind = kind;

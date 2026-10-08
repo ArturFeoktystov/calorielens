@@ -327,3 +327,14 @@ textarea { resize: none; }
 .week-row { align-items: center !important; }
 .week-row .when .small { margin-top: 2px; }
 .weight-view { margin-top: -4px; }
+
+/* advice card: collapsed shows the headline only */
+.advice-toggle { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: inherit; font: inherit; }
+.advice-toggle .chev { color: var(--muted); font-size: 13px; transition: transform 0.2s; }
+.advice:not(.collapsed) .advice-toggle .chev { transform: rotate(180deg); }
+.advice-toggle.no-tips .chev { display: none; }
+.advice-headline { cursor: pointer; }
+.advice.collapsed .advice-tips { display: none; }
+.advice.collapsed .advice-headline {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}

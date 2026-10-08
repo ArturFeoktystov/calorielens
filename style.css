@@ -324,7 +324,7 @@ textarea { resize: none; }
 #advice-review { color: var(--green); font-size: 14px; }
 .week-row { align-items: center !important; }
 .week-row .when .small { margin-top: 2px; }
-.weight-view { margin-top: -4px; }
+.weight-range { margin-top: -6px; }
 
 /* advice card: collapsed shows the headline only */
 .advice-toggle { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: inherit; font: inherit; }

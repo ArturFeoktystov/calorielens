@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
   <header>
@@ -168,16 +168,17 @@
       <button type="submit" class="primary-button">Save</button>
     </form>
     <p class="muted small">Once a week is enough: same day, in the morning, after the bathroom, before eating.</p>
+    <div id="weight-summary" class="stats-summary"></div>
+    <!-- Chart controls sit together, right above the chart: what to show, and for which period. -->
+    <div class="segmented weight-view" role="radiogroup" aria-label="Show">
+      <label><input type="radio" name="weight-view" value="weigh-ins" checked><span>Each weigh-in</span></label>
+      <label><input type="radio" name="weight-view" value="weeks"><span>Weekly average</span></label>
+    </div>
     <div class="segmented weight-range" role="radiogroup" aria-label="Period">
       <label><input type="radio" name="weight-range" value="30"><span>1 month</span></label>
       <label><input type="radio" name="weight-range" value="91" checked><span>3 months</span></label>
       <label><input type="radio" name="weight-range" value="182"><span>6 months</span></label>
       <label><input type="radio" name="weight-range" value="all"><span>All</span></label>
-    </div>
-    <div id="weight-summary" class="stats-summary"></div>
-    <div class="segmented weight-view" role="radiogroup" aria-label="Show">
-      <label><input type="radio" name="weight-view" value="weigh-ins" checked><span>Weigh-ins</span></label>
-      <label><input type="radio" name="weight-view" value="weeks"><span>Weeks</span></label>
     </div>
     <div id="weight-readout" class="stats-readout small"></div>
     <svg id="weight-chart" class="stats-chart weight-chart" role="img" aria-label="Weight over time"></svg>
@@ -270,6 +271,6 @@
   <!-- Fetches fresh files on every launch and keeps a copy for offline use (see sw.js). -->
   <script>navigator.serviceWorker?.register("sw.js");</script>
   <!-- Bump ?v= on every change so phones don't keep an old cached copy. -->
-  <script type="module" src="app.js?v=16"></script>
+  <script type="module" src="app.js?v=17"></script>
 </body>
 </html>

@@ -43,7 +43,7 @@ A new day starts at **04:00**, so a 00:30 snack belongs to the day before.
 (1 month / 3 months / 6 months / all) with the planned pace as a dashed line, the change, the rate per week
 (a least-squares line through the weigh-ins, so one odd reading doesn't swing it) and a verdict:
 on track between the chosen pace − 0.25 % and 1 % a week, "too fast" above 1 % (muscle at risk).
-The latest weigh-in is the profile weight, so the targets follow it. **Weeks** shows one row per
+The latest weigh-in is the profile weight, so the targets follow it. **Weekly average** (next to **Each weigh-in**) shows one row per
 Monday–Sunday week: the average of all that week's weigh-ins (one or several, drawn mid-week), the change from the previous week, and that week's
 average calories and protein (finished days only), so eating and weight sit side by side.
 

@@ -5,13 +5,13 @@
 import {
   ACTIVITY, GOALS, DEFAULT_PROFILE, targets, dayKey, totals, shiftDay, timeOnDay, dailyStats, summarize,
   weightTrend, daysBetween, weekStart, weeklySummary, DAY_START_HOUR,
-} from "./nutrition.js?v=16";
+} from "./nutrition.js?v=17";
 import {
   load, save, entriesForDay, entriesBetween, getEntry, putEntry, deleteEntry, waterForDay, setWater,
   allWeights, putWeight, deleteWeight, requestPersistence,
-} from "./db.js?v=16";
-import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=16";
-import { dailyAdvice } from "./advice.js?v=16";
+} from "./db.js?v=17";
+import { estimate, describeError, NUTRIENT_FIELDS } from "./recognize.js?v=17";
+import { dailyAdvice } from "./advice.js?v=17";
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5 — recommended",
   "claude-haiku-4-5": "Haiku 4.5 — cheapest",
